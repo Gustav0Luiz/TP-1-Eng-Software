@@ -11,7 +11,7 @@ Esse repositório contém o tp 1 da disciplina de engenharia de software, que co
 | Gustavo Luiz    | Frontend  | [@Gustavo](https://github.com/Gustav0Luiz) |
 | Leonardo Romano | Backend    | [@LeoRoms](https://github.com/LeoRoms) |
 | Vinicius de Alcantara| Backend   | [@vini-alg](https://github.com/vini-alg) |
-| Arthur Guimarães  | Fullstack    | [@Arthur](https://github.com/usuario4) |
+| Arthur Guimarães  | Fullstack    | [@Arthur](https://github.com/arthurguimaraesferreira) |
 
 ---
 ## 🛠 Tecnologias Utilizadas
