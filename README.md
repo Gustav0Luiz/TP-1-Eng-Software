@@ -31,15 +31,10 @@ Esse repositório contém o tp 1 da disciplina de engenharia de software, que co
 ### Agente de IA 
 - Cursor/Windsurf
 
-- 
+  
 ### Outras Ferramentas
 - **Controle de versão:** Git + GitHub  
 - **Gerenciamento de dependências:** npm    
 ---
 
-
-
-### US-008 — Assinar **alertas por e-mail**
-**Como** usuário  
-**Quero** me cadastrar para **receber um e-mail** sempre que **eu** tiver um **novo artigo** disponibilizado
 
