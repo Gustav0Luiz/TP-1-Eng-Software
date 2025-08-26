@@ -26,7 +26,6 @@ Esse repositório contém o tp 1 da disciplina de engenharia de software, que co
 
 ### Banco de Dados
 - **SGBD:** PostgreSQL  
-- **ORM / Ferramentas:** talvez nao precise 
 
 ### Agente de IA 
 - Cursor/Windsurf
