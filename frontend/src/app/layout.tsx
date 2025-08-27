@@ -10,8 +10,8 @@ const roboto = Roboto({
 });
 
 export const metadata: Metadata = {
-  title: "Biblioteca Virtual de Artigos",
-  description: "Aplicação Next.js",
+  title: "Vlib - Biblioteca Virtual de Artigos",
+  description: "Biblioteca Virtual de Artigos",
   icons: {
     icon: [
       {
@@ -31,9 +31,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body className={`${roboto.className} antialiased`}>
+      <body className={`${roboto.className} antialiased `}>
         {children}
       </body>
+  
     </html>
   );
 }

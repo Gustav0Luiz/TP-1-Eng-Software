@@ -13,7 +13,7 @@ Este repositório contém o **Front-End da Biblioteca Digital de Artigos**, dese
 ### 🔧 Passo a passo
 
 1. **Clone o repositório**  
-   `git clone https://github.com/Gustav0Luiz/TP-1-Eng-Software.git`
+   `git clone -b gustavo --single-branch https://github.com/Gustav0Luiz/TP-1-Eng-Software.git`
 
 2. **Entre na pasta do Front-End**  
    `cd TP-1-Eng-Software/frontend`

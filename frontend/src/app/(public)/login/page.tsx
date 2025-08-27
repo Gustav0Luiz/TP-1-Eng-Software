@@ -1,19 +1,22 @@
 'use client';
 import { LogIn, BookOpen, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
+import Image from "next/image";
 import { useState } from 'react';
+import Footer from '@/app/components/Footer';
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
 
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white font-serif">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-blue-100">
+      <header className="bg-white border-b border-blue-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <Link href="/" className="flex items-center space-x-2">
-              <BookOpen className="h-8 w-8 text-blue-600" />
+              <Image src="/favicon.png" alt="Logo Vlib" width={27} height={27}/>
               <span className="text-2xl font-serif font-bold text-blue-900">Vlib</span>
             </Link>
           </div>
@@ -86,7 +89,7 @@ export default function Login() {
 
             <button
               type="submit"
-              className="w-full flex justify-center items-center space-x-2 py-3 px-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-serif"
+              className=" cursor-pointer w-full flex justify-center items-center space-x-2 py-3 px-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-serif"
             >
               <LogIn className="h-5 w-5" />
               <span>Entrar</span>
@@ -103,6 +106,7 @@ export default function Login() {
           </div>
         </div>
       </main>
+      <Footer />
     </div>
   );
 }
