@@ -43,9 +43,7 @@ A estrutura do banco de dados foi projetada para suportar as funcionalidades da 
 erDiagram
     users {
         INT id PK
-        VARCHAR first_name
-        VARCHAR last_name
-        VARCHAR nickname UK
+        VARCHAR name
         VARCHAR email UK
         VARCHAR password_hash
         TIMESTAMP created_at
@@ -60,21 +58,12 @@ erDiagram
         TIMESTAMP updated_at
     }
 
-    editions {
-        INT id PK
-        INT event_id FK
-        INT year
-        TEXT description
-        TIMESTAMP created_at
-        TIMESTAMP updated_at
-    }
-
     articles {
         INT id PK
         VARCHAR title
         TEXT abstract
         BYTEA pdf_data
-        INT edition_id FK
+        INT event_id FK
         INT uploader_id FK
         TIMESTAMP created_at
         TIMESTAMP updated_at
@@ -91,8 +80,7 @@ erDiagram
     }
 
     users ||--o{ articles : "uploads"
-    events ||--o{ editions : "has"
-    editions ||--o{ articles : "includes"
+    events ||--o{ articles : "hosts"
     articles }|..|| article_authors : "is written by"
     authors ||..|{ article_authors : "writes"
 

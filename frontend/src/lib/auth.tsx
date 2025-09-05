@@ -1,43 +1,25 @@
-// src/lib/auth.tsx
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
-export interface User {
+interface User {
   id: number;
-  first_name: string;
-  last_name: string;
-  nickname: string;   // <— importante
-  email: string;
-}
-
-type RegisterPayload = {
   first_name: string;
   last_name: string;
   nickname: string;
   email: string;
-  password: string;
-};
+}
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  loading: boolean;
-  login: (nickname: string, password: string) => Promise<User>;         // ← retorna User
-  register: (payload: RegisterPayload) => Promise<User>;                // ← retorna User
+  login: (email: string, password: string) => Promise<void>;
+  register: (firstName: string, lastName: string, nickname: string, email: string, password: string) => Promise<void>;
   logout: () => void;
+  loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-function safeSetToken(t: string | null) {
-  if (typeof window !== 'undefined') {
-    if (t) localStorage.setItem('auth_token', t);
-    else localStorage.removeItem('auth_token');
-  }
-}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -45,10 +27,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const saved = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
-    if (saved) {
-      setToken(saved);
-      fetchUserData(saved).finally(() => setLoading(false));
+    // Verifica se há token e dados do usuário salvos no localStorage
+    const savedToken = localStorage.getItem('auth_token');
+    const savedUser = localStorage.getItem('auth_user');
+    
+    if (savedToken && savedUser) {
+      try {
+        const userData = JSON.parse(savedUser);
+        setToken(savedToken);
+        setUser(userData);
+        setLoading(false);
+        
+        // Verifica se o token ainda é válido em background (sem bloquear a UI)
+        validateTokenInBackground(savedToken);
+      } catch (error) {
+        console.error('Erro ao parsear dados do usuário salvos:', error);
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+        setLoading(false);
+      }
+    } else if (savedToken) {
+      setToken(savedToken);
+      // Se só tem token mas não tem dados do usuário, busca os dados
+      fetchUserData(savedToken);
     } else {
       setLoading(false);
     }
@@ -56,74 +57,136 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUserData = async (authToken: string) => {
     try {
-      const res = await fetch(`${BASE_URL}/auth/me`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-        cache: 'no-store',
+      const response = await fetch('http://localhost:4000/api/me', {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
       });
-      if (!res.ok) {
-        safeSetToken(null);
+
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data.user);
+        // Salva os dados do usuário no localStorage
+        localStorage.setItem('auth_user', JSON.stringify(data.user));
+      } else {
+        // Token inválido, remove do localStorage
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
         setToken(null);
         setUser(null);
-        return;
       }
-      const data = await res.json();
-      setUser(data.user as User);
-    } catch {
-      safeSetToken(null);
+    } catch (error) {
+      console.error('Erro ao buscar dados do usuário:', error);
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
       setToken(null);
       setUser(null);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const login = async (nickname: string, password: string): Promise<User> => {
-    const res = await fetch(`${BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nickname, password }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data?.error?.message || 'Erro ao fazer login');
+  const validateTokenInBackground = async (authToken: string) => {
+    try {
+      const response = await fetch('http://localhost:4000/api/me', {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        // Token inválido, remove tudo e desloga o usuário
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+        setToken(null);
+        setUser(null);
+      }
+    } catch (error) {
+      console.error('Erro ao validar token em background:', error);
+      // Em caso de erro de rede, mantém o usuário logado mas pode tentar novamente depois
     }
-    const { user: u, token: t } = data as { user: User; token: string };
-    setUser(u);
-    setToken(t);
-    safeSetToken(t);
-    return u; // ← devolve o usuário autenticado
   };
 
-  const register = async (payload: RegisterPayload): Promise<User> => {
-    const res = await fetch(`${BASE_URL}/auth/register`, {
+  const login = async (email: string, password: string) => {
+    const response = await fetch('http://localhost:4000/api/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
     });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data?.error?.message || 'Erro ao registrar usuário');
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Erro ao fazer login');
     }
-    const { user: u, token: t } = data as { user: User; token: string };
-    setUser(u);
-    setToken(t);
-    safeSetToken(t);
-    return u; // ← devolve o usuário criado
+
+    // Salva o token no localStorage
+    localStorage.setItem('auth_token', data.token);
+    localStorage.setItem('auth_user', JSON.stringify(data.user));
+    
+    // Configura o cookie com o token
+    document.cookie = `auth_token=${data.token}; path=/; max-age=604800; samesite=lax`; // 7 dias
+    
+    // Atualiza o estado
+    setUser(data.user);
+    setToken(data.token);
+  };
+
+  const register = async (firstName: string, lastName: string, nickname: string, email: string, password: string) => {
+    const response = await fetch('http://localhost:4000/api/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ first_name: firstName, last_name: lastName, nickname, email, password }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Erro ao registrar usuário');
+    }
+
+    // Salva o token no localStorage
+    localStorage.setItem('auth_token', data.token);
+    localStorage.setItem('auth_user', JSON.stringify(data.user));
+    
+    // Configura o cookie com o token
+    document.cookie = `auth_token=${data.token}; path=/; max-age=604800; samesite=lax`; // 7 dias
+    
+    // Atualiza o estado
+    setUser(data.user);
+    setToken(data.token);
   };
 
   const logout = () => {
+    // Remove dos cookies
+    document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    
+    // Remove do localStorage
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
+    
+    // Atualiza o estado
     setUser(null);
     setToken(null);
-    safeSetToken(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, login, register, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
 export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within an AuthProvider');
-  return ctx;
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 }

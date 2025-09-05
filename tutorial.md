@@ -310,3 +310,9 @@ psql -h localhost -U postgres -d vlib -f backend/schema.sql
 - Backend e frontend iniciados com sucesso
 
 
+## 11) Testar as Conexões
+
+Acesse `http://localhost:3000/test-connection` para verificar se:
+- ✅ Frontend está se comunicando com o Backend
+- ✅ Backend está conectado ao Banco de Dados
+- ✅ API está funcionando corretamente

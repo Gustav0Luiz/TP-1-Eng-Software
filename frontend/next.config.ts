@@ -1,11 +1,7 @@
-// frontend/next.config.ts
-import type { NextConfig } from 'next';
+import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  turbopack: {
-    // Faz o Turbopack observar só este projeto (a pasta "frontend")
-    root: __dirname,
-  },
+  /* config options here */
 };
 
 export default nextConfig;

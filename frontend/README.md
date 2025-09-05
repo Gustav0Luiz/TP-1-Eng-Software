@@ -1,36 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 📚 Front-End da Biblioteca Digital de Artigos
 
-## Getting Started
+Este repositório contém o **Front-End da Biblioteca Digital de Artigos**, desenvolvido com **Node.js**.
 
-First, run the development server:
+## 🚀 Guia rápido para rodar localmente
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+### 📦 Requisitos
+- [Node.js](https://nodejs.org/) **v18.17.0 ou superior**
+- [npm](https://www.npmjs.com/) (instalado junto com o Node.js)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 🔧 Passo a passo
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. **Clone o repositório**  
+   `git clone -b gustavo --single-branch https://github.com/Gustav0Luiz/TP-1-Eng-Software.git`
 
-## Learn More
+2. **Entre na pasta do Front-End**  
+   `cd TP-1-Eng-Software/frontend`
 
-To learn more about Next.js, take a look at the following resources:
+3. **Instale as dependências**  
+   `npm install`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+4. **Inicie o servidor de desenvolvimento**  
+   `npm run dev`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+### 🌐 Acessando a aplicação
+Após iniciar o servidor, acesse: **http://localhost:3000**
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 📌 Observações
+- Garanta que está usando a versão correta do **Node.js** para evitar erros de compatibilidade.  
+- Se usar **nvm**, você pode alternar a versão com: `nvm use 18`

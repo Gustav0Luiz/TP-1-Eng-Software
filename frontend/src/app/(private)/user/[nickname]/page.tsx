@@ -1,353 +1,214 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { useAuth } from '@/lib/auth';
+import { useParams, useRouter } from 'next/navigation';
+import { useAuth } from '../../../../lib/auth';
 import Header from '@/app/components/Header';
-import Footer from '@/app/components/Footer';
-import { PlusCircle } from 'lucide-react';
-import Link from 'next/link';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+interface UserProfile {
+  id: number;
+  first_name: string;
+  last_name: string;
+  nickname: string;
+  email: string;
+  created_at: string;
+}
 
-type NewArticleState = {
-  title: string;
-  abstract: string;
-  pdf: File | null;
-  edition_id: number | '' ; // obrigatório no backend
-  authorsCsv: string;       // opcional (separado por ; ou ,)
-};
-
-export default function UserHome() {
+export default function UserProfilePage() {
+  const params = useParams();
   const router = useRouter();
-  const params = useParams<{ nickname: string }>();
-  const { user, loading, token } = useAuth();
+  const { user: currentUser, token, loading: authLoading } = useAuth();
+  const [profileUser, setProfileUser] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const [articles, setArticles] = useState<any[]>([]);
-  const [showModal, setShowModal] = useState(false);
-  const [isBulkUpload, setIsBulkUpload] = useState(false);
+  const nickname = params.nickname as string;
 
-  const [newArticle, setNewArticle] = useState<NewArticleState>({
-    title: '',
-    abstract: '',
-    pdf: null,
-    edition_id: '',
-    authorsCsv: '',
-  });
+  useEffect(() => {
+    if (authLoading) return;
+    
+    if (!currentUser || !token) {
+      router.push('/login');
+      return;
+    }
 
-  // carrega artigos do usuário autenticado
-  const fetchArticles = async () => {
-    if (!token) return;
+    fetchUserProfile();
+  }, [nickname, currentUser, token, authLoading]);
+
+  const fetchUserProfile = async () => {
     try {
-      // rota protegida no backend (sugestão implementada: GET /articles/mine)
-      const res = await fetch(`${BASE_URL}/articles/mine`, {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store',
+      setLoading(true);
+      setError(null);
+
+      const response = await fetch(`http://localhost:4000/api/user/${nickname}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
       });
-      if (res.ok) {
-        const data = await res.json();
-        setArticles(data.articles ?? []);
-      } else {
-        console.error('Erro ao carregar artigos');
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          setError('Usuário não encontrado');
+        } else {
+          setError('Erro ao carregar perfil do usuário');
+        }
+        return;
       }
-    } catch (err) {
-      console.error('Erro ao carregar artigos:', err);
+
+      const data = await response.json();
+      setProfileUser(data.user);
+    } catch (error) {
+      console.error('Erro ao buscar perfil:', error);
+      setError('Erro ao carregar perfil do usuário');
+    } finally {
+      setLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (loading) return;
-
-    const urlNick = (params?.nickname ?? '').toString().toLowerCase();
-    if (!user) {
-      router.replace('/login');
-      return;
-    }
-    if (user.nickname.toLowerCase() !== urlNick) {
-      // corrige o caminho para a rota privada correta
-      router.replace(`/user/${user.nickname}`);
-      return;
-    }
-
-    fetchArticles();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, user, params?.nickname, token]);
-
-  if (loading || !user) {
+  if (authLoading || loading) {
     return (
-      <div className="min-h-[50vh] flex items-center justify-center text-gray-600">
-        Carregando…
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Carregando perfil...</p>
+        </div>
       </div>
     );
   }
 
-  // cadastro manual de artigo
-  const handleCreateArticle = async (e: React.FormEvent) => {
-    e.preventDefault();
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+            {error}
+          </div>
+          <button
+            onClick={() => router.back()}
+            className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Voltar
+          </button>
+        </div>
+      </div>
+    );
+  }
 
-    if (isBulkUpload) {
-      // TODO: implementar importação de BibTeX + ZIP (backend: POST /articles/bulk-bibtex)
-      console.log('Importação em massa ainda não implementada neste formulário.');
-      return;
-    }
+  if (!profileUser) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600">Usuário não encontrado</p>
+        </div>
+      </div>
+    );
+  }
 
-    // validação simples no client
-    if (!newArticle.title.trim() || !newArticle.pdf || newArticle.edition_id === '') {
-      alert('Preencha Título, selecione o PDF e informe a Edição (edition_id).');
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append('title', newArticle.title);
-    formData.append('abstract', newArticle.abstract);
-    formData.append('edition_id', String(newArticle.edition_id));
-    if (newArticle.authorsCsv.trim()) {
-      // backend aceita CSV ou JSON; aqui mandamos CSV
-      formData.append('authors', newArticle.authorsCsv.trim());
-    }
-    formData.append('pdf', newArticle.pdf);
-
-    try {
-      const res = await fetch(`${BASE_URL}/articles`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          // NÃO defina Content-Type aqui; o browser define o boundary do multipart
-        },
-        body: formData,
-      });
-
-      if (res.ok) {
-        // fecha modal, limpa formulário e recarrega lista
-        setShowModal(false);
-        setNewArticle({
-          title: '',
-          abstract: '',
-          pdf: null,
-          edition_id: '',
-          authorsCsv: '',
-        });
-        await fetchArticles();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        console.error('Erro ao criar artigo', err);
-        alert(err?.error?.message || 'Erro ao criar artigo');
-      }
-    } catch (error) {
-      console.error('Erro ao criar artigo:', error);
-      alert('Erro ao criar artigo');
-    }
-  };
+  const isOwnProfile = currentUser?.id === profileUser.id;
 
   return (
-    <>
-      <Header />
+    <div className="min-h-screen bg-gray-50">
+      <Header/>
+      <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        {/* Header do Perfil */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="flex items-center space-x-6">
+            {/* Avatar */}
+            <div className="w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center">
+              <span className="text-3xl font-bold text-white">
+                {profileUser.first_name.charAt(0).toUpperCase()}
+              </span>
+            </div>
+            
+            {/* Informações do Usuário */}
+            <div className="flex-1">
+              <h1 className="text-3xl font-bold text-gray-900 font-serif">
+                {profileUser.first_name} {profileUser.last_name}
+              </h1>
+              <p className="text-gray-600 mt-1">@{profileUser.nickname}</p>
+              {isOwnProfile && (
+                <p className="text-sm text-gray-500 mt-2">{profileUser.email}</p>
+              )}
+              <p className="text-sm text-gray-500 mt-1">
+                Membro desde {new Date(profileUser.created_at).toLocaleDateString('pt-BR')}
+              </p>
+            </div>
 
-      <div className="min-h-screen max-w-4xl mx-auto px-4 py-10 flex flex-col">
-        <h1 className="text-2xl font-bold text-blue-900">
-          Olá, {user.first_name} {user.last_name} (@{user.nickname})
-        </h1>
-        <p className="mt-2 text-gray-600">Bem-vindo à sua área!</p>
-
-        {/* Box de Artigos do Usuário */}
-        <div className="mt-8">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold text-blue-900">Meus Artigos</h2>
-            <button
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              onClick={() => setShowModal(true)}
-            >
-              <PlusCircle className="h-5 w-5" />
-              <span>Adicionar Novo Artigo</span>
-            </button>
-          </div>
-
-          {/* Lista de Artigos */}
-          <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {articles.length === 0 ? (
-              <div className="col-span-full text-center text-gray-500">
-                Você ainda não tem artigos. Clique no botão acima para adicionar.
-              </div>
-            ) : (
-              articles.map((article) => (
-                <div
-                  key={article.id}
-                  className="p-4 bg-white shadow-md rounded-lg border border-gray-200"
-                >
-                  <h3 className="text-lg font-semibold text-blue-900">
-                    {article.title}
-                  </h3>
-                  {article.abstract && (
-                    <p className="text-sm text-gray-600 mt-2 line-clamp-4">
-                      {article.abstract}
-                    </p>
-                  )}
-                  <div className="mt-4">
-                    <Link
-                      href={`/artigos/${article.id}`}
-                      className="text-blue-600 hover:text-blue-800"
-                    >
-                      Ver mais
-                    </Link>
-                  </div>
-                </div>
-              ))
-            )}
+            {/* Ações */}
+            <div className="flex flex-col space-y-2">
+              {isOwnProfile ? (
+                <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-serif">
+                  Editar Perfil
+                </button>
+              ) : (
+                <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-serif">
+                  Seguir
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Modal de Cadastro de Artigo */}
-        {showModal && (
-          <div className="fixed inset-0 bg-black/50 flex justify-center items-center px-4">
-            <div className="bg-white p-6 rounded-lg w-full max-w-md">
-              <h3 className="text-xl font-semibold">Cadastrar Novo Artigo</h3>
+        {/* Conteúdo do Perfil */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Coluna Principal */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Sobre */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4 font-serif">Sobre</h2>
+              <p className="text-gray-600">
+                {isOwnProfile 
+                  ? "Esta é a sua página de perfil. Aqui você pode ver suas informações e atividades."
+                  : `Perfil de ${profileUser.first_name} ${profileUser.last_name}. Membro da comunidade Vlib.`
+                }
+              </p>
+            </div>
 
-              <div className="mt-4 flex gap-2">
-                <button
-                  onClick={() => setIsBulkUpload(false)}
-                  className={`px-4 py-2 rounded-lg ${
-                    !isBulkUpload
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 text-gray-700'
-                  }`}
-                >
-                  Cadastro Manual
-                </button>
-                <button
-                  onClick={() => setIsBulkUpload(true)}
-                  className={`px-4 py-2 rounded-lg ${
-                    isBulkUpload
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 text-gray-700'
-                  }`}
-                >
-                  Importar BibTeX
-                </button>
+            {/* Atividade Recente */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4 font-serif">Atividade Recente</h2>
+              <div className="text-center py-8">
+                <p className="text-gray-500">Nenhuma atividade recente</p>
               </div>
-
-              <form onSubmit={handleCreateArticle} className="space-y-4 mt-4">
-                {!isBulkUpload ? (
-                  <>
-                    <div>
-                      <label htmlFor="title" className="block text-sm font-medium text-gray-700">
-                        Título
-                      </label>
-                      <input
-                        id="title"
-                        type="text"
-                        value={newArticle.title}
-                        onChange={(e) =>
-                          setNewArticle((s) => ({ ...s, title: e.target.value }))
-                        }
-                        required
-                        className="w-full rounded-lg border px-4 py-2"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="abstract" className="block text-sm font-medium text-gray-700">
-                        Resumo
-                      </label>
-                      <textarea
-                        id="abstract"
-                        value={newArticle.abstract}
-                        onChange={(e) =>
-                          setNewArticle((s) => ({ ...s, abstract: e.target.value }))
-                        }
-                        className="w-full rounded-lg border px-4 py-2"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="authors" className="block text-sm font-medium text-gray-700">
-                        Autores (opcional, separados por ; ou ,)
-                      </label>
-                      <input
-                        id="authors"
-                        type="text"
-                        value={newArticle.authorsCsv}
-                        onChange={(e) =>
-                          setNewArticle((s) => ({ ...s, authorsCsv: e.target.value }))
-                        }
-                        placeholder="Maria; João; Fulano"
-                        className="w-full rounded-lg border px-4 py-2"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="edition" className="block text-sm font-medium text-gray-700">
-                        Edição (edition_id) *
-                      </label>
-                      <input
-                        id="edition"
-                        type="number"
-                        value={newArticle.edition_id}
-                        onChange={(e) =>
-                          setNewArticle((s) => ({
-                            ...s,
-                            edition_id: e.target.value === '' ? '' : Number(e.target.value),
-                          }))
-                        }
-                        required
-                        className="w-full rounded-lg border px-4 py-2"
-                        placeholder="Ex.: 1"
-                        min={1}
-                      />
-                      <p className="mt-1 text-xs text-gray-500">
-                        Informe o ID da edição (cada edição pertence a um evento e ano).
-                      </p>
-                    </div>
-
-                    <div>
-                      <label htmlFor="pdf" className="block text-sm font-medium text-gray-700">
-                        PDF *
-                      </label>
-                      <input
-                        id="pdf"
-                        type="file"
-                        accept="application/pdf"
-                        onChange={(e) =>
-                          setNewArticle((s) => ({
-                            ...s,
-                            pdf: e.target.files && e.target.files[0] ? e.target.files[0] : null,
-                          }))
-                        }
-                        required
-                        className="w-full text-sm border rounded-lg px-4 py-2"
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    {/* Placeholder para importação em massa (a implementar) */}
-                    <p className="text-sm text-gray-700">
-                      Importação BibTeX + ZIP ainda será implementada.
-                    </p>
-                  </>
-                )}
-
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowModal(false)}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    {isBulkUpload ? 'Importar Artigos' : 'Cadastrar Artigo'}
-                  </button>
-                </div>
-              </form>
             </div>
           </div>
-        )}
-      </div>
 
-      <Footer />
-    </>
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Estatísticas */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4 font-serif">Estatísticas</h2>
+              <div className="space-y-4">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Livros Lidos</span>
+                  <span className="font-semibold">0</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Resenhas</span>
+                  <span className="font-semibold">0</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Seguidores</span>
+                  <span className="font-semibold">0</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Seguindo</span>
+                  <span className="font-semibold">0</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Livros Favoritos */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4 font-serif">Livros Favoritos</h2>
+              <div className="text-center py-8">
+                <p className="text-gray-500">Nenhum livro favorito ainda</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
