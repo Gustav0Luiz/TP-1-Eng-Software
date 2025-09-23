@@ -5,54 +5,73 @@ import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import Header from '@/app/components/Header';
 import Footer from '@/app/components/Footer';
-import { PlusCircle, Upload, FileText, Clipboard } from 'lucide-react'; // Ícones para adicionar, upload de arquivos e outros
+import { PlusCircle } from 'lucide-react';
 import Link from 'next/link';
+
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+type NewArticleState = {
+  title: string;
+  abstract: string;
+  pdf: File | null;
+  edition_id: number | '' ; // obrigatório no backend
+  authorsCsv: string;       // opcional (separado por ; ou ,)
+};
 
 export default function UserHome() {
   const router = useRouter();
   const params = useParams<{ nickname: string }>();
-  const { user, loading } = useAuth();
-  
-  const [articles, setArticles] = useState<any[]>([]); // Para armazenar os artigos do usuário
-  const [showModal, setShowModal] = useState(false); // Estado para controlar o modal
-  const [isBulkUpload, setIsBulkUpload] = useState(false); // Para controlar se será um cadastro em massa ou manual
-  const [newArticle, setNewArticle] = useState({
+  const { user, loading, token } = useAuth();
+
+  const [articles, setArticles] = useState<any[]>([]);
+  const [showModal, setShowModal] = useState(false);
+  const [isBulkUpload, setIsBulkUpload] = useState(false);
+
+  const [newArticle, setNewArticle] = useState<NewArticleState>({
     title: '',
     abstract: '',
-    pdf: null as File | null,
-  }); // Dados do artigo a ser criado
+    pdf: null,
+    edition_id: '',
+    authorsCsv: '',
+  });
+
+  // carrega artigos do usuário autenticado
+  const fetchArticles = async () => {
+    if (!token) return;
+    try {
+      // rota protegida no backend (sugestão implementada: GET /articles/mine)
+      const res = await fetch(`${BASE_URL}/articles/mine`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setArticles(data.articles ?? []);
+      } else {
+        console.error('Erro ao carregar artigos');
+      }
+    } catch (err) {
+      console.error('Erro ao carregar artigos:', err);
+    }
+  };
 
   useEffect(() => {
-    if (loading) return; // aguardando checar token
-    const urlNick = (params?.nickname ?? '').toString().toLowerCase();
+    if (loading) return;
 
+    const urlNick = (params?.nickname ?? '').toString().toLowerCase();
     if (!user) {
-      // não autenticado → login
       router.replace('/login');
       return;
     }
     if (user.nickname.toLowerCase() !== urlNick) {
-      // autenticado mas a URL não corresponde ao apelido do usuário logado
-      router.replace(`/${user.nickname}`);
+      // corrige o caminho para a rota privada correta
+      router.replace(`/user/${user.nickname}`);
+      return;
     }
 
-    // Fetch os artigos do usuário
-    const fetchArticles = async () => {
-      try {
-        const res = await fetch(`/api/user/${user.nickname}/articles`);
-        if (res.ok) {
-          const data = await res.json();
-          setArticles(data.articles);
-        } else {
-          console.error('Erro ao carregar artigos');
-        }
-      } catch (err) {
-        console.error('Erro ao carregar artigos:', err);
-      }
-    };
-
-    fetchArticles(); // Carregar os artigos ao entrar na página
-  }, [loading, user, params?.nickname, router]);
+    fetchArticles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, user, params?.nickname, token]);
 
   if (loading || !user) {
     return (
@@ -62,46 +81,69 @@ export default function UserHome() {
     );
   }
 
-  // Função para cadastrar um artigo
+  // cadastro manual de artigo
   const handleCreateArticle = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (isBulkUpload) {
-      // Aqui podemos implementar a lógica para o upload de múltiplos artigos via BibTeX (exemplo não implementado aqui)
-      console.log('Implementar upload em massa...');
-    } else {
-      // Para cadastro manual do artigo
-      const formData = new FormData();
-      formData.append('title', newArticle.title);
-      formData.append('abstract', newArticle.abstract);
-      if (newArticle.pdf) formData.append('pdf', newArticle.pdf);
+      // TODO: implementar importação de BibTeX + ZIP (backend: POST /articles/bulk-bibtex)
+      console.log('Importação em massa ainda não implementada neste formulário.');
+      return;
+    }
 
-      try {
-        const res = await fetch('/api/articles', {
-          method: 'POST',
-          body: formData,
+    // validação simples no client
+    if (!newArticle.title.trim() || !newArticle.pdf || newArticle.edition_id === '') {
+      alert('Preencha Título, selecione o PDF e informe a Edição (edition_id).');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('title', newArticle.title);
+    formData.append('abstract', newArticle.abstract);
+    formData.append('edition_id', String(newArticle.edition_id));
+    if (newArticle.authorsCsv.trim()) {
+      // backend aceita CSV ou JSON; aqui mandamos CSV
+      formData.append('authors', newArticle.authorsCsv.trim());
+    }
+    formData.append('pdf', newArticle.pdf);
+
+    try {
+      const res = await fetch(`${BASE_URL}/articles`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          // NÃO defina Content-Type aqui; o browser define o boundary do multipart
+        },
+        body: formData,
+      });
+
+      if (res.ok) {
+        // fecha modal, limpa formulário e recarrega lista
+        setShowModal(false);
+        setNewArticle({
+          title: '',
+          abstract: '',
+          pdf: null,
+          edition_id: '',
+          authorsCsv: '',
         });
-
-        if (res.ok) {
-          const createdArticle = await res.json();
-          console.log('Artigo criado:', createdArticle);
-          setShowModal(false); // Fechar modal
-          // Atualizar lista de artigos, etc.
-        } else {
-          console.error('Erro ao criar artigo');
-        }
-      } catch (error) {
-        console.error('Erro ao criar artigo:', error);
+        await fetchArticles();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        console.error('Erro ao criar artigo', err);
+        alert(err?.error?.message || 'Erro ao criar artigo');
       }
+    } catch (error) {
+      console.error('Erro ao criar artigo:', error);
+      alert('Erro ao criar artigo');
     }
   };
 
   return (
     <>
-      {/* Header fixado no topo */}
       <Header />
 
       <div className="min-h-screen max-w-4xl mx-auto px-4 py-10 flex flex-col">
-        {/* Título de boas-vindas */}
         <h1 className="text-2xl font-bold text-blue-900">
           Olá, {user.first_name} {user.last_name} (@{user.nickname})
         </h1>
@@ -132,10 +174,19 @@ export default function UserHome() {
                   key={article.id}
                   className="p-4 bg-white shadow-md rounded-lg border border-gray-200"
                 >
-                  <h3 className="text-lg font-semibold text-blue-900">{article.title}</h3>
-                  <p className="text-sm text-gray-600 mt-2">{article.abstract}</p>
+                  <h3 className="text-lg font-semibold text-blue-900">
+                    {article.title}
+                  </h3>
+                  {article.abstract && (
+                    <p className="text-sm text-gray-600 mt-2 line-clamp-4">
+                      {article.abstract}
+                    </p>
+                  )}
                   <div className="mt-4">
-                    <Link href={`/artigos/${article.id}`} className="text-blue-600 hover:text-blue-800">
+                    <Link
+                      href={`/artigos/${article.id}`}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
                       Ver mais
                     </Link>
                   </div>
@@ -147,53 +198,120 @@ export default function UserHome() {
 
         {/* Modal de Cadastro de Artigo */}
         {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
-            <div className="bg-white p-6 rounded-lg w-96">
+          <div className="fixed inset-0 bg-black/50 flex justify-center items-center px-4">
+            <div className="bg-white p-6 rounded-lg w-full max-w-md">
               <h3 className="text-xl font-semibold">Cadastrar Novo Artigo</h3>
-              <div className="mt-4">
+
+              <div className="mt-4 flex gap-2">
                 <button
                   onClick={() => setIsBulkUpload(false)}
-                  className={`px-4 py-2 rounded-lg ${!isBulkUpload ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'}`}
+                  className={`px-4 py-2 rounded-lg ${
+                    !isBulkUpload
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-700'
+                  }`}
                 >
                   Cadastro Manual
                 </button>
                 <button
                   onClick={() => setIsBulkUpload(true)}
-                  className={`px-4 py-2 rounded-lg ${isBulkUpload ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'}`}
+                  className={`px-4 py-2 rounded-lg ${
+                    isBulkUpload
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-700'
+                  }`}
                 >
                   Importar BibTeX
                 </button>
               </div>
+
               <form onSubmit={handleCreateArticle} className="space-y-4 mt-4">
                 {!isBulkUpload ? (
                   <>
                     <div>
-                      <label htmlFor="title" className="block text-sm font-medium text-gray-700">Título</label>
+                      <label htmlFor="title" className="block text-sm font-medium text-gray-700">
+                        Título
+                      </label>
                       <input
-                        type="text"
                         id="title"
+                        type="text"
                         value={newArticle.title}
-                        onChange={(e) => setNewArticle({ ...newArticle, title: e.target.value })}
+                        onChange={(e) =>
+                          setNewArticle((s) => ({ ...s, title: e.target.value }))
+                        }
                         required
                         className="w-full rounded-lg border px-4 py-2"
                       />
                     </div>
+
                     <div>
-                      <label htmlFor="abstract" className="block text-sm font-medium text-gray-700">Resumo</label>
+                      <label htmlFor="abstract" className="block text-sm font-medium text-gray-700">
+                        Resumo
+                      </label>
                       <textarea
                         id="abstract"
                         value={newArticle.abstract}
-                        onChange={(e) => setNewArticle({ ...newArticle, abstract: e.target.value })}
-                        required
+                        onChange={(e) =>
+                          setNewArticle((s) => ({ ...s, abstract: e.target.value }))
+                        }
                         className="w-full rounded-lg border px-4 py-2"
                       />
                     </div>
+
                     <div>
-                      <label htmlFor="pdf" className="block text-sm font-medium text-gray-700">PDF</label>
+                      <label htmlFor="authors" className="block text-sm font-medium text-gray-700">
+                        Autores (opcional, separados por ; ou ,)
+                      </label>
                       <input
-                        type="file"
+                        id="authors"
+                        type="text"
+                        value={newArticle.authorsCsv}
+                        onChange={(e) =>
+                          setNewArticle((s) => ({ ...s, authorsCsv: e.target.value }))
+                        }
+                        placeholder="Maria; João; Fulano"
+                        className="w-full rounded-lg border px-4 py-2"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="edition" className="block text-sm font-medium text-gray-700">
+                        Edição (edition_id) *
+                      </label>
+                      <input
+                        id="edition"
+                        type="number"
+                        value={newArticle.edition_id}
+                        onChange={(e) =>
+                          setNewArticle((s) => ({
+                            ...s,
+                            edition_id: e.target.value === '' ? '' : Number(e.target.value),
+                          }))
+                        }
+                        required
+                        className="w-full rounded-lg border px-4 py-2"
+                        placeholder="Ex.: 1"
+                        min={1}
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        Informe o ID da edição (cada edição pertence a um evento e ano).
+                      </p>
+                    </div>
+
+                    <div>
+                      <label htmlFor="pdf" className="block text-sm font-medium text-gray-700">
+                        PDF *
+                      </label>
+                      <input
                         id="pdf"
-                        onChange={(e) => setNewArticle({ ...newArticle, pdf: e.target.files ? e.target.files[0] : null })}
+                        type="file"
+                        accept="application/pdf"
+                        onChange={(e) =>
+                          setNewArticle((s) => ({
+                            ...s,
+                            pdf: e.target.files && e.target.files[0] ? e.target.files[0] : null,
+                          }))
+                        }
                         required
                         className="w-full text-sm border rounded-lg px-4 py-2"
                       />
@@ -201,22 +319,18 @@ export default function UserHome() {
                   </>
                 ) : (
                   <>
-                    <div>
-                      <label htmlFor="bibtex" className="block text-sm font-medium text-gray-700">Importar BibTeX</label>
-                      <input
-                        type="file"
-                        id="bibtex"
-                        className="w-full text-sm border rounded-lg px-4 py-2"
-                      />
-                    </div>
-                    <p className="mt-2 text-xs text-gray-500">Envie um arquivo .bibtex com múltiplos artigos.</p>
+                    {/* Placeholder para importação em massa (a implementar) */}
+                    <p className="text-sm text-gray-700">
+                      Importação BibTeX + ZIP ainda será implementada.
+                    </p>
                   </>
                 )}
-                <div className="flex justify-end space-x-2">
+
+                <div className="flex justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
-                    className="px-4 py-2 text-gray-500 hover:text-gray-700"
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800"
                   >
                     Cancelar
                   </button>
@@ -233,7 +347,6 @@ export default function UserHome() {
         )}
       </div>
 
-      {/* Footer fixado na parte inferior */}
       <Footer />
     </>
   );

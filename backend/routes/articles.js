@@ -375,32 +375,31 @@ router.get("/search", async (req, res, next) => {
 
     if (field === "author") {
       rows = await sql/*sql*/`
-        SELECT a.id, a.title, a.start_page, a.end_page,
-               e.year AS edition_year, ev.name AS event_name, ev.acronym AS event_acronym
+        SELECT a.id, a.title, a.abstract, a.start_page, a.end_page,
+               e.year AS edition_year, ev.name AS event_name
           FROM articles a
           JOIN editions e ON e.id = a.edition_id
           JOIN events   ev ON ev.id = e.event_id
           JOIN article_authors aa ON aa.article_id = a.id
           JOIN authors au ON au.id = aa.author_id
          WHERE au.name ILIKE ${like}
-         GROUP BY a.id, e.year, ev.name, ev.acronym
+         GROUP BY a.id, e.year, ev.name
          ORDER BY e.year DESC, a.id DESC
       `;
     } else if (field === "event") {
       rows = await sql/*sql*/`
-        SELECT a.id, a.title, a.start_page, a.end_page,
-               e.year AS edition_year, ev.name AS event_name, ev.acronym AS event_acronym
+        SELECT a.id, a.title, a.abstract, a.start_page, a.end_page,
+               e.year AS edition_year, ev.name AS event_name
           FROM articles a
           JOIN editions e ON e.id = a.edition_id
           JOIN events   ev ON ev.id = e.event_id
-         WHERE ev.name ILIKE ${like} OR ev.acronym ILIKE ${like}
+         WHERE ev.name ILIKE ${like}
          ORDER BY e.year DESC, a.id DESC
       `;
     } else {
-      // title (default)
       rows = await sql/*sql*/`
-        SELECT a.id, a.title, a.start_page, a.end_page,
-               e.year AS edition_year, ev.name AS event_name, ev.acronym AS event_acronym
+        SELECT a.id, a.title, a.abstract, a.start_page, a.end_page,
+               e.year AS edition_year, ev.name AS event_name
           FROM articles a
           JOIN editions e ON e.id = a.edition_id
           JOIN events   ev ON ev.id = e.event_id
@@ -411,7 +410,6 @@ router.get("/search", async (req, res, next) => {
 
     if (!rows.length) return res.json({ articles: [] });
 
-    // Busca autores de todos os artigos encontrados, num único roundtrip
     const ids = rows.map(r => r.id);
     const authors = await sql/*sql*/`
       SELECT aa.article_id, au.name
@@ -421,13 +419,13 @@ router.get("/search", async (req, res, next) => {
        ORDER BY aa.article_id, au.name
     `;
 
-    // Agrega autores por artigo
     const byArticle = new Map();
     for (const r of rows) {
       byArticle.set(r.id, {
         id: r.id,
         title: r.title,
-        event: { name: r.event_name, acronym: r.event_acronym },
+        abstract: r.abstract,
+        event: { name: r.event_name },
         edition_year: r.edition_year,
         start_page: r.start_page,
         end_page: r.end_page,
@@ -580,6 +578,25 @@ router.post(
     }
   }
 );
+
+
+// ---------------------------------------------------------------------------
+// GET /articles/mine  → lista apenas os artigos do usuário autenticado
+// Requer JWT (já está protegido pois o router é montado com `auth` no app.js).
+router.get("/mine", async (req, res, next) => {
+  try {
+    const rows = await sql/*sql*/`
+      SELECT a.id, a.title, a.abstract, a.created_at
+      FROM articles a
+      WHERE a.uploader_id = ${req.user.id}
+      ORDER BY a.created_at DESC
+    `;
+    return res.json({ articles: rows });
+  } catch (err) {
+    next(err);
+  }
+});
+
 
 /* ============================================================================
    Exporta o Router para ser montado no app.js:

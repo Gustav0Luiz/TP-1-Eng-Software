@@ -145,9 +145,11 @@ CREATE TABLE IF NOT EXISTS articles (
   id           INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   title        VARCHAR(255) NOT NULL,
   abstract     TEXT,
-  pdf_data     BYTEA, -- PDF como binário (BYTEA). Em produção, pense em armazenar em arquivo/objeto e salvar só a URL.
+  start_page   INTEGER,  -- página inicial
+  end_page     INTEGER,  -- página final
+  pdf_data     BYTEA,
   edition_id   INTEGER NOT NULL REFERENCES editions(id) ON DELETE CASCADE,
-  uploader_id  INTEGER REFERENCES users(id) ON DELETE SET NULL, -- quem submeteu o artigo
+  uploader_id  INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

@@ -22,7 +22,9 @@ const { sql } = require("./db/sql");      // Conexão com Postgres (usada em /db
 const authRouter = require("../routes/auth");       // Rotas de autenticação (/auth/...).
 const eventsRouter = require("../routes/events");   // Rotas de eventos (/events/...).
 const editionsRouter = require("../routes/editions"); // Rotas de edições (/editions/...).
+const articlesPublicRouter = require("../routes/articles_public");
 const articlesRouter = require("../routes/articles");
+
 
 
 
@@ -73,6 +75,14 @@ app.use("/events", auth, eventsRouter);
 //   - GET  /editions/:id
 //   - PATCH/DELETE /editions/:id
 app.use("/editions", auth, editionsRouter);
+
+// ######################################
+// público: só /articles/search
+app.use("/articles", articlesPublicRouter);
+
+// protegido: todas as outras rotas de artigos
+// app.use("/articles", auth, articlesRouter);
+// ######################################
 
 // Todas as rotas que começam com /articles serão tratadas pelo
 // router de artigos (src/routes/articles.js). Também exigem JWT
