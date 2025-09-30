@@ -19,6 +19,7 @@ export const API_BASE_URL = getApiBaseUrl();
 // Função auxiliar para fazer requisições HTTP
 async function apiRequest(endpoint: string, options: RequestInit = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
+  console.log('Tentando acessar API em:', url);
   
   const config: RequestInit = {
     headers: {

@@ -33,7 +33,29 @@ const { auth } = require("./middlewares/auth");    // Middleware que valida JWT 
 
 const app = express(); // Cria a aplicação Express.
 
-app.use(cors({ origin: 'http://localhost:3000', credentials: false }));
+const allowedOrigins = [
+  // Regex para permitir localhost com qualquer porta (ex: 3000, 3005)
+  /^http:\/\/localhost:\d+$/,
+  // Regex para permitir qualquer subdomínio do Codespaces
+  /\.app\.github\.dev$/
+];
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Permite requisições sem 'origin' (ex: Postman, mobile apps)
+    if (!origin) return callback(null, true);
+
+    // Verifica se a origem da requisição está na lista de permissões
+    if (allowedOrigins.some(regex => regex.test(origin))) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true, // Permite o envio de cookies e headers de autorização
+};
+
+app.use(cors(corsOptions));
 
 // === Middlewares globais (sempre antes das rotas) ===
 app.use(express.json()); // Faz o parse automático de JSON no body das requisições.
