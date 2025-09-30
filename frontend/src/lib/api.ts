@@ -1,6 +1,20 @@
 // Configuração da API para comunicação com o backend
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const getApiBaseUrl = () => {
+  // Prefixo NEXT_PUBLIC_ é necessário para o Next.js expor a variável ao browser
+  const codespaceName = process.env.NEXT_PUBLIC_CODESPACE_NAME;
+  const backendPort = 4000;
+
+  if (codespaceName) {
+    // Estamos no GitHub Codespaces
+    return `https://${codespaceName}-${backendPort}.app.github.dev`;
+  }
+
+  // Fallback para ambiente local
+  return process.env.NEXT_PUBLIC_API_URL || `http://localhost:${backendPort}`;
+};
+
+export const API_BASE_URL = getApiBaseUrl();
 
 // Função auxiliar para fazer requisições HTTP
 async function apiRequest(endpoint: string, options: RequestInit = {}) {

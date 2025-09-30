@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { API_BASE_URL } from './api';
 
 interface User {
   id: number;
@@ -27,7 +28,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Verifica se há token e dados do usuário salvos no localStorage
     const savedToken = localStorage.getItem('auth_token');
     const savedUser = localStorage.getItem('auth_user');
     
@@ -37,8 +37,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setToken(savedToken);
         setUser(userData);
         setLoading(false);
-        
-        // Verifica se o token ainda é válido em background (sem bloquear a UI)
         validateTokenInBackground(savedToken);
       } catch (error) {
         console.error('Erro ao parsear dados do usuário salvos:', error);
@@ -48,7 +46,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } else if (savedToken) {
       setToken(savedToken);
-      // Se só tem token mas não tem dados do usuário, busca os dados
       fetchUserData(savedToken);
     } else {
       setLoading(false);
@@ -57,7 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUserData = async (authToken: string) => {
     try {
-      const response = await fetch('http://localhost:4000/api/me', {
+      const response = await fetch(`${API_BASE_URL}/api/me`, {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json',
@@ -67,10 +64,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (response.ok) {
         const data = await response.json();
         setUser(data.user);
-        // Salva os dados do usuário no localStorage
         localStorage.setItem('auth_user', JSON.stringify(data.user));
       } else {
-        // Token inválido, remove do localStorage
         localStorage.removeItem('auth_token');
         localStorage.removeItem('auth_user');
         setToken(null);
@@ -89,7 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const validateTokenInBackground = async (authToken: string) => {
     try {
-      const response = await fetch('http://localhost:4000/api/me', {
+      const response = await fetch(`${API_BASE_URL}/api/me`, {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json',
@@ -97,7 +92,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (!response.ok) {
-        // Token inválido, remove tudo e desloga o usuário
         localStorage.removeItem('auth_token');
         localStorage.removeItem('auth_user');
         setToken(null);
@@ -105,12 +99,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error('Erro ao validar token em background:', error);
-      // Em caso de erro de rede, mantém o usuário logado mas pode tentar novamente depois
     }
   };
 
   const login = async (email: string, password: string) => {
-    const response = await fetch('http://localhost:4000/api/login', {
+    const response = await fetch(`${API_BASE_URL}/api/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -124,20 +117,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(data.error || 'Erro ao fazer login');
     }
 
-    // Salva o token no localStorage
     localStorage.setItem('auth_token', data.token);
     localStorage.setItem('auth_user', JSON.stringify(data.user));
-    
-    // Configura o cookie com o token
-    document.cookie = `auth_token=${data.token}; path=/; max-age=604800; samesite=lax`; // 7 dias
-    
-    // Atualiza o estado
+    document.cookie = `auth_token=${data.token}; path=/; max-age=604800; samesite=lax`;
     setUser(data.user);
     setToken(data.token);
   };
 
   const register = async (firstName: string, lastName: string, nickname: string, email: string, password: string) => {
-    const response = await fetch('http://localhost:4000/api/register', {
+    const response = await fetch(`${API_BASE_URL}/api/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -151,27 +139,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(data.error || 'Erro ao registrar usuário');
     }
 
-    // Salva o token no localStorage
     localStorage.setItem('auth_token', data.token);
     localStorage.setItem('auth_user', JSON.stringify(data.user));
-    
-    // Configura o cookie com o token
-    document.cookie = `auth_token=${data.token}; path=/; max-age=604800; samesite=lax`; // 7 dias
-    
-    // Atualiza o estado
+    document.cookie = `auth_token=${data.token}; path=/; max-age=604800; samesite=lax`;
     setUser(data.user);
     setToken(data.token);
   };
 
   const logout = () => {
-    // Remove dos cookies
     document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-    
-    // Remove do localStorage
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
-    
-    // Atualiza o estado
     setUser(null);
     setToken(null);
   };

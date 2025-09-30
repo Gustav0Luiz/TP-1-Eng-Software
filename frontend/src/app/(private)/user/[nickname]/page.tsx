@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '../../../../lib/auth';
+import { API_BASE_URL } from '../../../../lib/api';
 import Header from '@/app/components/Header';
 
 interface UserProfile {
@@ -40,7 +41,7 @@ export default function UserProfilePage() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`http://localhost:4000/api/user/${nickname}`, {
+            const response = await fetch(`${API_BASE_URL}/api/user/${nickname}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
