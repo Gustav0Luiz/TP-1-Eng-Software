@@ -17,6 +17,8 @@ const cors = require('cors');
 const express = require("express");       // Framework para criar a API HTTP.
 const morgan = require("morgan");         // Logger HTTP (método, URL, status, tempo).
 const { sql } = require("./db/sql");      // Conexão com Postgres (usada em /db-check).
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 
 // === Importação das rotas ===
 const authRouter = require("../routes/auth");       // Rotas de autenticação (/auth/...).
@@ -75,7 +77,135 @@ app.use(morgan("dev"));  // Loga cada requisição no console (útil em dev).
 //   - GET  /auth/me
 // Observação: normalmente /register e /login são públicas;
 // /auth/me costuma exigir JWT dentro do próprio router.
-app.use("/auth", authRouter);
+app.use("/api/auth", authRouter);
+
+
+/* =============================================================================
+   HELPERS (movidos de auth.js)
+   ========================================================================== */
+function normalizeRegisterInput(body = {}) {
+  return {
+    first_name: typeof body.first_name === "string" ? body.first_name.trim() : "",
+    last_name:  typeof body.last_name  === "string" ? body.last_name.trim()  : "",
+    nickname:   typeof body.nickname   === "string" ? body.nickname.trim().toLowerCase() : "",
+    email:      typeof body.email      === "string" ? body.email.trim().toLowerCase()    : "",
+    password:   typeof body.password   === "string" ? body.password.trim()               : "",
+  };
+}
+function normalizeLoginInput(body = {}) {
+  return {
+    nickname: typeof body.nickname === "string" ? body.nickname.trim().toLowerCase() : "",
+    password: typeof body.password === "string" ? body.password.trim() : "",
+  };
+}
+function signTokenForUser(user) {
+  if (!process.env.JWT_SECRET) {
+    const e = new Error("JWT_SECRET não está definido no .env");
+    e.code = "ENV_MISCONFIG";
+    throw e;
+  }
+  return jwt.sign(
+    {
+      sub: user.id,
+      email: user.email,
+      nickname: user.nickname,
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+  );
+}
+
+/* =============================================================================
+   ROTAS PÚBLICAS (movidas de auth.js)
+   ========================================================================== */
+app.post("/api/register", async (req, res, next) => {
+  try {
+    const { first_name, last_name, nickname, email, password } =
+      normalizeRegisterInput(req.body);
+
+    if (!first_name || !last_name || !nickname || !email || !password) {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION",
+          message: "Todos os campos são obrigatórios"
+        }
+      });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({
+        error: { code: "WEAK_PASSWORD", message: "A senha deve ter pelo menos 6 caracteres" }
+      });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const [created] = await sql/*sql*/`
+      INSERT INTO users (first_name, last_name, nickname, email, password_hash)
+      VALUES (${first_name}, ${last_name}, ${nickname}, ${email}, ${passwordHash})
+      RETURNING id, first_name, last_name, nickname, email, created_at, updated_at
+    `;
+
+    const token = signTokenForUser(created);
+    return res.status(201).json({ user: created, token });
+
+  } catch (err) {
+    if (err.code === "23505") {
+      const c = err.constraint || "";
+      const isEmail    = c.includes("users_email");
+      const isNickname = c.includes("users_nickname");
+      return res.status(409).json({
+        error: {
+          code: isEmail ? "EMAIL_IN_USE" : (isNickname ? "NICKNAME_IN_USE" : "UNIQUE_VIOLATION"),
+          message: isEmail ? "E-mail já cadastrado" : "Nickname já cadastrado"
+        }
+      });
+    }
+    if (err.code === "ENV_MISCONFIG") {
+      return res.status(500).json({ error: { code: "ENV_MISCONFIG", message: err.message } });
+    }
+    next(err);
+  }
+});
+
+app.post("/api/login", async (req, res, next) => {
+  try {
+    const { nickname, password } = normalizeLoginInput(req.body);
+
+    if (!nickname || !password) {
+      return res.status(400).json({
+        error: { code: "VALIDATION", message: "nickname e password são obrigatórios" }
+      });
+    }
+
+    const rows = await sql/*sql*/`
+      SELECT id, first_name, last_name, nickname, email, password_hash, created_at, updated_at
+      FROM users
+      WHERE nickname = ${nickname}
+      LIMIT 1
+    `;
+    const user = rows[0];
+
+    if (!user) {
+      return res.status(401).json({ error: { code: "INVALID_CREDENTIALS", message: "Usuário ou senha inválidos" } });
+    }
+
+    const ok = await bcrypt.compare(password, user.password_hash);
+    if (!ok) {
+      return res.status(401).json({ error: { code: "INVALID_CREDENTIALS", message: "Usuário ou senha inválidos" } });
+    }
+
+    const token = signTokenForUser(user);
+    const publicUser = { id: user.id, first_name: user.first_name, last_name: user.last_name, nickname: user.nickname, email: user.email, created_at: user.created_at, updated_at: user.updated_at };
+
+    return res.json({ user: publicUser, token });
+
+  } catch (err) {
+    if (err.code === "ENV_MISCONFIG") {
+      return res.status(500).json({ error: { code: "ENV_MISCONFIG", message: err.message } });
+    }
+    next(err);
+  }
+});
 
 // Todas as rotas que começam com /events serão tratadas pelo
 // router de eventos (src/routes/events.js). **Antes** de chegar

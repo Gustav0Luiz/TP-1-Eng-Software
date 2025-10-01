@@ -28,6 +28,8 @@ const { auth } = require("../src/middlewares/auth"); // Middleware que valida o 
 
 const router = Router();
 
+router.use(auth); // Aplica o middleware de autenticação a todas as rotas deste router
+
 /* =============================================================================
    HELPERS (utilitários locais)
    ========================================================================== */
@@ -96,7 +98,7 @@ function signTokenForUser(user) {
    - O middleware `auth` valida o token e popula `req.user` (id/email/nickname).
    - Aqui só fazemos um SELECT no banco e retornamos campos públicos.
    ========================================================================== */
-router.get("/me", auth, async (req, res, next) => {
+router.get("/me", async (req, res, next) => {
   try {
     // Buscamos o usuário pelo ID que veio no token (req.user.id)
     const rows = await sql/*sql*/`
@@ -121,154 +123,6 @@ router.get("/me", auth, async (req, res, next) => {
   }
 });
 
-/* =============================================================================
-   POST /auth/register  → cria um novo usuário e retorna { user, token }
-   Body esperado:
-     {
-       first_name: string,
-       last_name:  string,
-       nickname:   string,  // único, usado para LOGIN
-       email:      string,  // único
-       password:   string   // ≥ 6 chars
-     }
 
-   Regras:
-     * Todos os campos são obrigatórios
-     * password ≥ 6 caracteres
-     * UNIQUE(email) e UNIQUE(nickname) no schema → tratamos erro 23505
-   Segurança:
-     * Hash de senha com bcrypt (saltRounds=10)
-     * Nunca retornar password_hash
-   ========================================================================== */
-router.post("/register", async (req, res, next) => {
-  try {
-    const { first_name, last_name, nickname, email, password } =
-      normalizeRegisterInput(req.body);
-
-    // Validações simples
-    if (!first_name || !last_name || !nickname || !email || !password) {
-      return res.status(400).json({
-        error: {
-          code: "VALIDATION",
-          message: "first_name, last_name, nickname, email e password são obrigatórios"
-        }
-      });
-    }
-    if (password.length < 6) {
-      return res.status(400).json({
-        error: { code: "WEAK_PASSWORD", message: "A senha deve ter pelo menos 6 caracteres" }
-      });
-    }
-
-    // Gera hash seguro da senha (NUNCA salve a senha em texto puro)
-    const passwordHash = await bcrypt.hash(password, 10);
-
-    // Insere o usuário no banco (o schema garante unique de email/nickname)
-    const [created] = await sql/*sql*/`
-      INSERT INTO users (first_name, last_name, nickname, email, password_hash)
-      VALUES (${first_name}, ${last_name}, ${nickname}, ${email}, ${passwordHash})
-      RETURNING id, first_name, last_name, nickname, email, created_at, updated_at
-    `;
-
-    // Gera token JWT para já autenticar após registro
-    const token = signTokenForUser(created);
-
-    // Retorna dados públicos + token (NUNCA inclua password_hash)
-    return res.status(201).json({ user: created, token });
-
-  } catch (err) {
-    // Tratamento de violações de unicidade (email/nickname duplicados)
-    if (err.code === "23505") {
-      const c = err.constraint || "";
-      const isEmail    = c.includes("users_email");
-      const isNickname = c.includes("users_nickname");
-      return res.status(409).json({
-        error: {
-          code: isEmail ? "EMAIL_IN_USE" : (isNickname ? "NICKNAME_IN_USE" : "UNIQUE_VIOLATION"),
-          message: isEmail ? "E-mail já cadastrado" : (isNickname ? "Nickname já cadastrado" : "Registro duplicado")
-        }
-      });
-    }
-    // Falha de configuração: JWT_SECRET ausente
-    if (err.code === "ENV_MISCONFIG") {
-      return res.status(500).json({
-        error: { code: "ENV_MISCONFIG", message: err.message }
-      });
-    }
-    // Qualquer outro erro → segue para o handler global
-    next(err);
-  }
-});
-
-/* =============================================================================
-   POST /auth/login  → autentica por (nickname + password) e retorna { user, token }
-   Body esperado:
-     { nickname: string, password: string }
-
-   Fluxo:
-     * valida/normaliza entradas
-     * busca usuário por nickname (único)
-     * compara senha com bcrypt.compare
-     * se ok, assina JWT e retorna { user público, token }
-   ========================================================================== */
-router.post("/login", async (req, res, next) => {
-  try {
-    const { nickname, password } = normalizeLoginInput(req.body);
-
-    if (!nickname || !password) {
-      return res.status(400).json({
-        error: { code: "VALIDATION", message: "nickname e password são obrigatórios" }
-      });
-    }
-
-    // Busca por nickname (único)
-    const rows = await sql/*sql*/`
-      SELECT id, first_name, last_name, nickname, email, password_hash, created_at, updated_at
-      FROM users
-      WHERE nickname = ${nickname}
-      LIMIT 1
-    `;
-    const user = rows[0];
-
-    // Não revelar qual campo falhou: resposta genérica
-    if (!user) {
-      return res.status(401).json({
-        error: { code: "INVALID_CREDENTIALS", message: "Usuário ou senha inválidos" }
-      });
-    }
-
-    // Compara a senha informada com o hash do banco
-    const ok = await bcrypt.compare(password, user.password_hash);
-    if (!ok) {
-      return res.status(401).json({
-        error: { code: "INVALID_CREDENTIALS", message: "Usuário ou senha inválidos" }
-      });
-    }
-
-    // Credenciais válidas → assina JWT
-    const token = signTokenForUser(user);
-
-    // Monta objeto público (sem password_hash)
-    const publicUser = {
-      id: user.id,
-      first_name: user.first_name,
-      last_name:  user.last_name,
-      nickname:   user.nickname,
-      email:      user.email,
-      created_at: user.created_at,
-      updated_at: user.updated_at,
-    };
-
-    return res.json({ user: publicUser, token });
-
-  } catch (err) {
-    if (err.code === "ENV_MISCONFIG") {
-      return res.status(500).json({
-        error: { code: "ENV_MISCONFIG", message: err.message }
-      });
-    }
-    next(err);
-  }
-});
 
 module.exports = router;
