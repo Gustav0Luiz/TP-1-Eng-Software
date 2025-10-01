@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { API_BASE_URL } from './api';
+import { apiRequest } from './api';
 
 interface User {
   id: number;
@@ -27,6 +27,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const fetchUserData = async (authToken: string) => {
+    try {
+      const data = await apiRequest('/api/me', {
+        headers: { 'Authorization': `Bearer ${authToken}` },
+      });
+      setUser(data.user);
+      localStorage.setItem('auth_user', JSON.stringify(data.user));
+    } catch (error) {
+      console.error('Erro ao buscar dados do usuário:', error);
+      logout(); // Desloga o usuário se o token for inválido
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const validateTokenInBackground = async (authToken: string) => {
+    try {
+      await apiRequest('/api/me', {
+        headers: { 'Authorization': `Bearer ${authToken}` },
+      });
+    } catch (error) {
+      console.error('Erro ao validar token em background:', error);
+      logout(); // Desloga se o token for inválido
+    }
+  };
+
   useEffect(() => {
     const savedToken = localStorage.getItem('auth_token');
     const savedUser = localStorage.getItem('auth_user');
@@ -36,86 +62,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const userData = JSON.parse(savedUser);
         setToken(savedToken);
         setUser(userData);
-        setLoading(false);
         validateTokenInBackground(savedToken);
       } catch (error) {
         console.error('Erro ao parsear dados do usuário salvos:', error);
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_user');
-        setLoading(false);
+        logout();
       }
     } else if (savedToken) {
-      setToken(savedToken);
       fetchUserData(savedToken);
-    } else {
-      setLoading(false);
-    }
+    } 
+    setLoading(false);
   }, []);
 
-  const fetchUserData = async (authToken: string) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/me`, {
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data.user);
-        localStorage.setItem('auth_user', JSON.stringify(data.user));
-      } else {
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_user');
-        setToken(null);
-        setUser(null);
-      }
-    } catch (error) {
-      console.error('Erro ao buscar dados do usuário:', error);
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('auth_user');
-      setToken(null);
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const validateTokenInBackground = async (authToken: string) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/me`, {
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_user');
-        setToken(null);
-        setUser(null);
-      }
-    } catch (error) {
-      console.error('Erro ao validar token em background:', error);
-    }
-  };
-
   const login = async (email: string, password: string) => {
-    const response = await fetch(`${API_BASE_URL}/api/login`, {
+    const data = await apiRequest('/api/login', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({ email, password }),
     });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Erro ao fazer login');
-    }
 
     localStorage.setItem('auth_token', data.token);
     localStorage.setItem('auth_user', JSON.stringify(data.user));
@@ -125,19 +87,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const register = async (firstName: string, lastName: string, nickname: string, email: string, password: string) => {
-    const response = await fetch(`${API_BASE_URL}/api/register`, {
+    const data = await apiRequest('/api/register', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({ first_name: firstName, last_name: lastName, nickname, email, password }),
     });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Erro ao registrar usuário');
-    }
 
     localStorage.setItem('auth_token', data.token);
     localStorage.setItem('auth_user', JSON.stringify(data.user));
