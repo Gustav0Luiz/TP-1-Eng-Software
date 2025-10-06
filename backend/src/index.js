@@ -50,6 +50,21 @@ app.use('/api', apiRoutes(pool));
 
 // --- Sobe o servidor ---
 const PORT = Number(process.env.PORT || 4000);
-app.listen(PORT, () => {
-  console.log(`API ouvindo em http://localhost:${PORT}`);
-});
+
+const startServer = async () => {
+  try {
+    // Testa a conexão com o banco de dados antes de subir o servidor
+    const client = await pool.connect();
+    console.log('Conexão com o banco de dados bem-sucedida!');
+    client.release(); // Libera o cliente de volta para o pool
+
+    app.listen(PORT, () => {
+      console.log(`API ouvindo em http://localhost:${PORT}`);
+    });
+  } catch (error) {
+    console.error('Falha ao conectar com o banco de dados:', error);
+    process.exit(1); // Encerra o processo com erro
+  }
+};
+
+startServer();

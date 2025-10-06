@@ -1,123 +1,129 @@
+// src/lib/auth.tsx
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { apiRequest } from './api';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 
-interface User {
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+export interface User {
   id: number;
+  first_name: string;
+  last_name: string;
+  nickname: string;   // <— importante
+  email: string;
+}
+
+type RegisterPayload = {
   first_name: string;
   last_name: string;
   nickname: string;
   email: string;
-}
+  password: string;
+};
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (email: string, password: string) => Promise<void>;
-  register: (firstName: string, lastName: string, nickname: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
   loading: boolean;
+  login: (nickname: string, password: string) => Promise<User>;         // ← retorna User
+  register: (payload: RegisterPayload) => Promise<User>;                // ← retorna User
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+function safeSetToken(t: string | null) {
+  if (typeof window !== 'undefined') {
+    if (t) localStorage.setItem('auth_token', t);
+    else localStorage.removeItem('auth_token');
+  }
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchUserData = async (authToken: string) => {
-    try {
-      const data = await apiRequest('/api/me', {
-        headers: { 'Authorization': `Bearer ${authToken}` },
-      });
-      setUser(data.user);
-      localStorage.setItem('auth_user', JSON.stringify(data.user));
-    } catch (error) {
-      console.error('Erro ao buscar dados do usuário:', error);
-      logout(); // Desloga o usuário se o token for inválido
-    } finally {
+  useEffect(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+    if (saved) {
+      setToken(saved);
+      fetchUserData(saved).finally(() => setLoading(false));
+    } else {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const validateTokenInBackground = async (authToken: string) => {
+  const fetchUserData = async (authToken: string) => {
     try {
-      await apiRequest('/api/me', {
-        headers: { 'Authorization': `Bearer ${authToken}` },
+      const res = await fetch(`${BASE_URL}/auth/me`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+        cache: 'no-store',
       });
-    } catch (error) {
-      console.error('Erro ao validar token em background:', error);
-      logout(); // Desloga se o token for inválido
+      if (!res.ok) {
+        safeSetToken(null);
+        setToken(null);
+        setUser(null);
+        return;
+      }
+      const data = await res.json();
+      setUser(data.user as User);
+    } catch {
+      safeSetToken(null);
+      setToken(null);
+      setUser(null);
     }
   };
 
-  useEffect(() => {
-    const savedToken = localStorage.getItem('auth_token');
-    const savedUser = localStorage.getItem('auth_user');
-    
-    if (savedToken && savedUser) {
-      try {
-        const userData = JSON.parse(savedUser);
-        setToken(savedToken);
-        setUser(userData);
-        validateTokenInBackground(savedToken);
-      } catch (error) {
-        console.error('Erro ao parsear dados do usuário salvos:', error);
-        logout();
-      }
-    } else if (savedToken) {
-      fetchUserData(savedToken);
-    } 
-    setLoading(false);
-  }, []);
-
-  const login = async (email: string, password: string) => {
-    const data = await apiRequest('/api/login', {
+  const login = async (nickname: string, password: string): Promise<User> => {
+    const res = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nickname, password }),
     });
-
-    localStorage.setItem('auth_token', data.token);
-    localStorage.setItem('auth_user', JSON.stringify(data.user));
-    document.cookie = `auth_token=${data.token}; path=/; max-age=604800; samesite=lax`;
-    setUser(data.user);
-    setToken(data.token);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data?.error?.message || 'Erro ao fazer login');
+    }
+    const { user: u, token: t } = data as { user: User; token: string };
+    setUser(u);
+    setToken(t);
+    safeSetToken(t);
+    return u; // ← devolve o usuário autenticado
   };
 
-  const register = async (firstName: string, lastName: string, nickname: string, email: string, password: string) => {
-    const data = await apiRequest('/api/register', {
+  const register = async (payload: RegisterPayload): Promise<User> => {
+    const res = await fetch(`${BASE_URL}/auth/register`, {
       method: 'POST',
-      body: JSON.stringify({ first_name: firstName, last_name: lastName, nickname, email, password }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
     });
-
-    localStorage.setItem('auth_token', data.token);
-    localStorage.setItem('auth_user', JSON.stringify(data.user));
-    document.cookie = `auth_token=${data.token}; path=/; max-age=604800; samesite=lax`;
-    setUser(data.user);
-    setToken(data.token);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data?.error?.message || 'Erro ao registrar usuário');
+    }
+    const { user: u, token: t } = data as { user: User; token: string };
+    setUser(u);
+    setToken(t);
+    safeSetToken(t);
+    return u; // ← devolve o usuário criado
   };
 
   const logout = () => {
-    document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('auth_user');
     setUser(null);
     setToken(null);
+    safeSetToken(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within an AuthProvider');
+  return ctx;
 }

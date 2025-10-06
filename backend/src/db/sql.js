@@ -10,7 +10,7 @@
 const postgres = require("postgres");
 
 // Cria o cliente SQL lendo variáveis do ambiente (.env).
-// Como não passamos DATABASE_URL, ele usa automaticamente PGHOST, PGUSER, etc.
+// O objeto/função retornado é o que chamamos de 'sql' e contém o método .join().
 const sql = postgres({
   host: process.env.PGHOST,       // ex.: "localhost"
   port: process.env.PGPORT,       // ex.: 5432
@@ -30,4 +30,7 @@ async function shutdown() {
   await sql.end({ timeout: 5 });
 }
 
+// CORREÇÃO: Exporta explicitamente 'sql' e 'shutdown'.
+// Isso garante que o objeto 'sql' importado nas rotas seja o cliente Postgres
+// completo que inclui o método `.join()` para consultas dinâmicas.
 module.exports = { sql, shutdown };

@@ -1,16 +1,10 @@
 // Configuração da API para comunicação com o backend
 
-const getApiBaseUrl = () => {
-  // URL do backend no Codespace. O nome foi extraído de screenshots anteriores.
-  return 'https://congenial-space-system-jjq5455jx6r72q955-4000.app.github.dev';
-};
-
-export const API_BASE_URL = getApiBaseUrl();
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 // Função auxiliar para fazer requisições HTTP
-export async function apiRequest(endpoint: string, options: RequestInit = {}) {
+async function apiRequest(endpoint: string, options: RequestInit = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
-  console.log('Tentando acessar API em:', url);
   
   const config: RequestInit = {
     headers: {

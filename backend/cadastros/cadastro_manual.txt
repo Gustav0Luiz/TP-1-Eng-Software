@@ -1,0 +1,14 @@
+titulo: Avaliação do uso de LLMs para Suporte à Tomada de Decisão na
+Adoção de Padrões de Projeto em Software Orientado a Objetos
+
+autores: Vitor Monteiro Colombo;Weslen Schiavon de Souza;Lisane Brisolara de Brisolara;Brenda Salenave Santana;
+
+evento: Anais do XVI Congresso Brasileiro de Software: Teoria e Prática
+
+ano: 2025
+
+paginas: 1-11
+
+resumo:
+
+Padrões de projeto são soluções reutilizáveis aplicadas a problemas recorrentes no desenvolvimento de software, visando melhorar a qualidade do projeto. O uso de tais padrões pode trazer uma série de benefícios à arquitetura do software a ser desenvolvido; entretanto,dada a variedade de padrões existentes e seus diferentes propósitos,projetistas inexperientes podem ter dificuldade em identificar padrões apropriados ao contexto. Este trabalho investiga o potencial do uso de grandes modelos de linguagem (LLM, do inglês, Large Language Model) na assistência a projetistas no emprego de padrões de projeto em aplicações desenvolvidas sob o paradigma da orientação a objetos. A principal questão discutida e avaliada no artigo é se ferramentas baseadas em LLMs conseguem sugerir e orientar projetistas na escolha e aplicação de padrões em etapas iniciais do projeto. Experimentos foram realizados usando diferentes ferramentas e os resultados foram discutidos e comparados, destacando seus potenciais para apoiar o projeto de arquiteturas de software.

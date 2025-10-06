@@ -10,7 +10,8 @@ const router = Router();
  */
 router.get("/search", async (req, res, next) => {
   try {
-    const field = String(req.query.field || "title").toLowerCase();
+    const fieldRaw = String(req.query.field || "title").toLowerCase();
+    const field = ["title", "author", "event"].includes(fieldRaw) ? fieldRaw : "title";
     const q = String(req.query.q || "").trim();
     if (!q) return res.json({ articles: [] });
 
@@ -19,7 +20,7 @@ router.get("/search", async (req, res, next) => {
 
     if (field === "author") {
       rows = await sql/*sql*/`
-        SELECT a.id, a.title, a.abstract, a.start_page, a.end_page,
+        SELECT a.id, a.title, a.abstract, a.start_page, a.end_page, a.created_at,
                e.year AS edition_year, ev.name AS event_name
           FROM articles a
           JOIN editions e ON e.id = a.edition_id
@@ -27,35 +28,35 @@ router.get("/search", async (req, res, next) => {
           JOIN article_authors aa ON aa.article_id = a.id
           JOIN authors au ON au.id = aa.author_id
          WHERE au.name ILIKE ${like}
-         GROUP BY a.id, e.year, ev.name
-         ORDER BY e.year DESC, a.id DESC
+         GROUP BY a.id, e.year, ev.name, a.created_at, a.start_page, a.end_page, a.title, a.abstract
+         ORDER BY e.year DESC NULLS LAST, a.id DESC
       `;
     } else if (field === "event") {
       rows = await sql/*sql*/`
-        SELECT a.id, a.title, a.abstract, a.start_page, a.end_page,
+        SELECT a.id, a.title, a.abstract, a.start_page, a.end_page, a.created_at,
                e.year AS edition_year, ev.name AS event_name
           FROM articles a
           JOIN editions e ON e.id = a.edition_id
           JOIN events   ev ON ev.id = e.event_id
          WHERE ev.name ILIKE ${like}
-         ORDER BY e.year DESC, a.id DESC
+         ORDER BY e.year DESC NULLS LAST, a.id DESC
       `;
     } else {
       // title (default)
       rows = await sql/*sql*/`
-        SELECT a.id, a.title, a.abstract, a.start_page, a.end_page,
+        SELECT a.id, a.title, a.abstract, a.start_page, a.end_page, a.created_at,
                e.year AS edition_year, ev.name AS event_name
           FROM articles a
           JOIN editions e ON e.id = a.edition_id
           JOIN events   ev ON ev.id = e.event_id
          WHERE a.title ILIKE ${like}
-         ORDER BY e.year DESC, a.id DESC
+         ORDER BY e.year DESC NULLS LAST, a.id DESC
       `;
     }
 
     if (!rows.length) return res.json({ articles: [] });
 
-    // Busca autores
+    // Busca autores para todos os artigos retornados
     const ids = rows.map(r => r.id);
     const authors = await sql/*sql*/`
       SELECT aa.article_id, au.name
@@ -65,25 +66,65 @@ router.get("/search", async (req, res, next) => {
        ORDER BY aa.article_id, au.name
     `;
 
-    // Agrega autores por artigo
+    // Consolida autores por artigo e retorna no shape esperado pelo frontend
     const byArticle = new Map();
     for (const r of rows) {
       byArticle.set(r.id, {
         id: r.id,
         title: r.title,
         abstract: r.abstract,
-        event: { name: r.event_name },  // sem acronym
+        event_name: r.event_name,   // <- chave esperada no FE
         edition_year: r.edition_year,
         start_page: r.start_page,
         end_page: r.end_page,
-        authors: []
+        created_at: r.created_at,
+        authors: [],
       });
     }
     for (const a of authors) {
-      byArticle.get(a.article_id)?.authors.push(a.name);
+      const ref = byArticle.get(a.article_id);
+      if (ref) ref.authors.push(a.name);
     }
 
     res.json({ articles: Array.from(byArticle.values()) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /articles/:id/pdf
+ * Público: stream de PDF com cabeçalho para download.
+ * ⚠️ Deixe esta rota DEPOIS de /search para não conflitar ("/search" não vira :id).
+ */
+router.get("/:id/pdf", async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: { code: "VALIDATION", message: "ID inválido" } });
+    }
+
+    const rows = await sql/*sql*/`
+      SELECT title, pdf_data
+        FROM articles
+       WHERE id = ${id}
+       LIMIT 1
+    `;
+    const found = rows[0];
+    if (!found?.pdf_data) {
+      return res.status(404).json({ error: "PDF não encontrado" });
+    }
+
+    const safeTitle =
+      (found.title || `article-${id}`).replace(/[^\w\- ]+/g, "").trim() || `article-${id}`;
+
+    res.setHeader("Content-Type", "application/pdf");
+    // Força download no browser
+    res.setHeader("Content-Disposition", `attachment; filename="${safeTitle}.pdf"`);
+    // Cache curto (opcional)
+    res.setHeader("Cache-Control", "public, max-age=300");
+
+    res.send(Buffer.from(found.pdf_data));
   } catch (err) {
     next(err);
   }
