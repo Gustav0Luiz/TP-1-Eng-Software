@@ -48,16 +48,16 @@ erDiagram
         VARCHAR nickname UK
         VARCHAR email UK
         VARCHAR password_hash
-        TIMESTAMP created_at
-        TIMESTAMP updated_at
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
     }
 
     events {
         INT id PK
-        VARCHAR name
+        VARCHAR name UK
         TEXT description
-        TIMESTAMP created_at
-        TIMESTAMP updated_at
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
     }
 
     editions {
@@ -65,19 +65,22 @@ erDiagram
         INT event_id FK
         INT year
         TEXT description
-        TIMESTAMP created_at
-        TIMESTAMP updated_at
+        VARCHAR local
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
     }
 
     articles {
         INT id PK
         VARCHAR title
         TEXT abstract
+        INT start_page
+        INT end_page
         BYTEA pdf_data
         INT edition_id FK
         INT uploader_id FK
-        TIMESTAMP created_at
-        TIMESTAMP updated_at
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
     }
 
     authors {
@@ -95,7 +98,6 @@ erDiagram
     editions ||--o{ articles : "includes"
     articles }|..|| article_authors : "is written by"
     authors ||..|{ article_authors : "writes"
-
 ```
 
 ---
