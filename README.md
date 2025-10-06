@@ -274,3 +274,60 @@ cd backend && npm start
 ---
 
 
+## Backlog das Histórias
+
+### História #1: Como administrador, eu quero cadastrar (editar, deletar) um evento  
+*(Exemplo: Simpósio Brasileiro de Engenharia de Software)*  
+
+**Tarefas e responsáveis:**  
+- Instalar dependências iniciais do projeto (Node.js, Express, Postgres, bibliotecas de apoio) [Arthur, Gustavo, Leonardo e Vinicius]  
+- Criar as tabelas do banco de dados para eventos (tabela `events`) [Vinicius]  
+- Implementar no backend a API para cadastrar evento no banco de dados (rota `POST /events`) [Arthur]  
+- Implementar no backend a API para listar eventos (rota `GET /events`) [Arthur]  
+- Implementar no backend a API para editar evento (rota `PATCH /events/:id`) []  
+- Implementar no backend a API para deletar evento (rota `DELETE /events/:id`) []  
+- Integrar a API com o banco de dados [Arthur]  
+- Implementar a tela inicial do sistema (frontend) [Gustavo]  
+- Implementar no frontend o fluxo de criação e listagem de eventos [Gustavo]  
+- Implementar no frontend o fluxo de edição e exclusão de eventos [Gustavo]  
+- Testar cadastro, edição e exclusão de eventos fim a fim (frontend + backend + banco) [Gustavo]  
+
+
+### História #4: Como administrador, eu quero cadastrar artigos em massa, a partir de um arquivo bibtex, com dados de vários artigos  
+
+**Tarefas e responsáveis:**  
+- Criar no banco de dados as tabelas necessárias para artigos e autores (articles, authors, editions, article_authors) [Vinicius]  
+- Implementar no backend a rota `POST /articles/bulk-bibtex` []  
+- Implementar no backend o parser de arquivos `.bib` para extrair título, autores, ano e páginas []  
+- Implementar no backend a lógica de associar arquivos PDF a cada entrada do BibTeX []  
+- Garantir consistência entre ano do artigo e ano da edição selecionada []  
+- Implementar no frontend a tela para upload de arquivo BibTeX e ZIP de PDFs []  
+- Integrar a tela de upload com a API `/articles/bulk-bibtex` []  
+- Exibir no frontend os resultados da importação (artigos criados e artigos pulados) []  
+- Testar cadastro em massa com casos de sucesso e de erro (frontend + backend + banco) []  
+
+
+### História #5: Como usuário, eu quero pesquisar por artigos: por título, por autor e por nome de evento  
+
+**Tarefas e responsáveis:**  
+- Criar no banco de dados as tabelas necessárias (articles, authors, events, editions, article_authors) [Vinicius]  
+- Implementar no backend a rota `GET /articles/search` (busca por título, autor e evento) []  
+- Garantir no backend a junção com tabelas auxiliares para trazer autores, evento e edição []  
+- Implementar na página inicial o campo de busca com seleção de filtro (Título, Autor, Evento) []  
+- Implementar a página de resultados de busca (`/buscar`) no frontend [Arthur]  
+- Conectar a página de resultados ao backend (`/articles/search`) para exibir os artigos [Arthur]  
+- Adaptar a exibição dos resultados para mostrar título, resumo, autores e evento/ano [Arthur]  
+- Testar buscas por título, autor e evento, validando integração completa [Arthur]  
+
+
+### História #8: Como usuário, eu quero me cadastrar para receber um mail sempre que eu tiver um novo artigo disponibilizado  
+
+**Tarefas e responsáveis:**  
+- Criar no banco de dados a tabela `subscriptions` para armazenar usuários inscritos [Vinicius]  
+- Implementar no backend a rota `POST /subscriptions` (inscrever usuário) []  
+- Implementar no backend a lógica de envio de email ao novo artigo ser disponibilizado []  
+- Configurar serviço de email (ex.: SMTP, SendGrid, etc.) []  
+- Implementar no frontend o fluxo de inscrição do usuário (formulário para email/usuário) []  
+- Integrar o frontend com a API `/subscriptions` []  
+- Implementar notificação por email quando novos artigos forem adicionados []  
+- Testar inscrição, cancelamento e envio de notificações fim a fim []  
