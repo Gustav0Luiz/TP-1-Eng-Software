@@ -56,29 +56,47 @@ router.post("/subscribe", async (req, res, next) => {
     `;
 
     // envia e-mail de boas-vindas/confirmacao
-    const subject = "Inscrição confirmada — Alertas de novos artigos";
+    const subject = "✅ Confirmação de Inscrição: Alertas de Artigos Vlib";
+    // Versão Plain Text (para clientes de e-mail que não renderizam HTML)
     const plain = [
-      `Olá, ${name}!`,
+      `Prezado(a) ${name},`,
       "",
-      "Recebemos seu cadastro e você será notificado por e-mail sempre que um novo artigo for registrado com o seu nome (exato) na autoria.",
+      "Obrigado por se inscrever no serviço de alertas de autoria da Vlib (Biblioteca Virtual de Artigos).",
       "",
-      "Se não foi você quem fez essa inscrição, basta ignorar este e-mail.",
+      `Sua inscrição está ativa para monitorar o nome: ${name}.`,
       "",
-      "— Equipe Vlib",
+      "Você receberá um e-mail de notificação sempre que um novo artigo for adicionado ao nosso catálogo com este nome entre os autores (correspondência exata e sem diferenciar maiúsculas/minúsculas).",
+      "",
+      "---",
+      "Se você não solicitou este serviço, por favor, ignore este e-mail. Para cancelar futuras notificações, você pode responder a este e-mail solicitando a remoção.",
+      "",
+      "Atenciosamente,",
+      "Equipe Vlib.",
     ].join("\n");
 
+    // Versão HTML (Mais profissional e visual)
     const html = `
-      <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;line-height:1.5;color:#111">
-        <h2 style="margin:0 0 12px 0">Olá, ${name}!</h2>
-        <p style="margin:0 0 12px 0">
-          Sua inscrição foi confirmada. Você receberá um aviso sempre que
-          cadastrarmos um novo artigo com o nome <strong>${name}</strong> entre os autores.
-        </p>
-        <p style="margin:0 0 12px 0">Obrigado por usar a <strong>Vlib</strong>! 📚</p>
-        <hr style="border:none;border-top:1px solid #eee;margin:16px 0" />
-        <p style="margin:0;color:#666;font-size:12px">
-          Se não foi você quem fez essa inscrição, ignore este e-mail.
-        </p>
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+        <div style="background-color: #007bff; color: white; padding: 20px; text-align: center;">
+          <h1 style="margin: 0; font-size: 24px;">Vlib - Confirmação de Alerta</h1>
+        </div>
+        <div style="padding: 25px;">
+          <h2 style="color: #007bff; margin-top: 0;">Inscrição Confirmada, ${name}!</h2>
+          <p>Seu cadastro no nosso serviço de monitoramento de autoria foi concluído com sucesso.</p>
+          
+          <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; border-left: 4px solid #28a745;">
+            <strong>Nome monitorado:</strong> 
+            <span style="color: #007bff; font-weight: bold;">${name}</span>
+          </div>
+          
+          <p style="margin-top: 20px;">Você será notificado imediatamente por e-mail sempre que um artigo novo com este nome for indexado em nossa biblioteca.</p>
+          
+          <p>Obrigado por utilizar a Vlib para acompanhar suas publicações! 📚</p>
+        </div>
+        <div style="background-color: #f1f1f1; color: #6c757d; padding: 15px; font-size: 12px; text-align: center;">
+          <p style="margin: 0;">Se você não solicitou este serviço, por favor, ignore este e-mail.</p>
+          <p style="margin: 5px 0 0 0;">Para cancelar, responda a este e-mail solicitando a remoção do seu endereço.</p>
+        </div>
       </div>
     `;
 

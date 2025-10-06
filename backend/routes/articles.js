@@ -157,86 +157,8 @@ async function replaceArticleAuthors(articleId, authorNames) {
 
 
 
-/**
- * Envia e-mail para assinantes cujo `name` (case-insensitive, match exato)
- * aparece na lista de autores do artigo recém-criado.
- */
-async function notifySubscribersForNewArticle({ title, authors, eventName, year, articleId, startPage, endPage }) {
-  try {
-    const authorList = (authors || [])
-      .map(a => String(a || "").trim())
-      .filter(Boolean);
 
-    if (!authorList.length) return;
-
-    // nomes lower para comparação exata porém case-insensitive
-    const lowers = authorList.map(n => n.toLowerCase());
-
-    // Quem está inscrito exatamente por esses nomes
-    const subs = await sql/*sql*/`
-      SELECT DISTINCT s.email, s.name
-        FROM subscriptions s
-       WHERE s.is_enabled = TRUE
-         AND lower(s.name) = ANY(${sql(lowers)})
-    `;
-    if (!subs.length) return;
-
-    // Monta e-mail
-    const subject = "Novo artigo cadastrado com o seu nome";
-    const makeText = (subName) => [
-      `Olá, ${subName}!`,
-      "",
-      "Acabamos de cadastrar um artigo com o seu nome entre os autores:",
-      "",
-      `• Título: ${title}`,
-      `• Autores: ${authorList.join(", ")}`,
-      `• Evento/Ano: ${eventName} — ${year}`,
-      `• Páginas: ${startPage ?? "—"}–${endPage ?? "—"}`,
-      `• ID no sistema: ${articleId}`,
-      "",
-      "Se você não deseja mais receber estes alertas, responda a este e-mail solicitando a remoção.",
-      "",
-      "— Equipe Vlib",
-    ].join("\n");
-
-    const makeHtml = (subName) => `
-      <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;line-height:1.5;color:#111">
-        <h2 style="margin:0 0 12px 0">Olá, ${subName}!</h2>
-        <p style="margin:0 0 12px 0">Cadastramos um novo artigo com o seu nome entre os autores:</p>
-        <ul style="margin:0 0 12px 20px;padding:0">
-          <li><strong>Título:</strong> ${escapeHtml(title)}</li>
-          <li><strong>Autores:</strong> ${escapeHtml(authorList.join(", "))}</li>
-          <li><strong>Evento/Ano:</strong> ${escapeHtml(eventName)} — ${year}</li>
-          <li><strong>Páginas:</strong> ${startPage ?? "—"}–${endPage ?? "—"}</li>
-          <li><strong>ID no sistema:</strong> ${articleId}</li>
-        </ul>
-        <hr style="border:none;border-top:1px solid #eee;margin:16px 0" />
-        <p style="margin:0;color:#666;font-size:12px">
-          Para parar de receber alertas, responda solicitando remoção.
-        </p>
-      </div>
-    `;
-
-    // Envia um e-mail por inscrito (de forma simples; pode-se otimizar depois)
-    for (const s of subs) {
-      try {
-        await sendMail({
-          to: s.email,
-          subject,
-          text: makeText(s.name),
-          html: makeHtml(s.name),
-        });
-      } catch (e) {
-        // Não interrompe o fluxo; apenas log
-        console.error("Erro ao enviar e-mail p/ subscriber:", s.email, e?.message || e);
-      }
-    }
-  } catch (err) {
-    console.error("notifySubscribersForNewArticle error:", err?.message || err);
-  }
-}
-
-// helper simples para escapar HTML
+// --- HTML helper (no mesmo arquivo/escopo) ---
 function escapeHtml(str = "") {
   return String(str)
     .replace(/&/g, "&amp;")
@@ -244,22 +166,160 @@ function escapeHtml(str = "") {
     .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
 
+/**
+ * Envia e-mail para assinantes cujo `name` (case-insensitive, match exato)
+ * aparece na lista de autores do artigo recém-criado.
+ */
+async function notifySubscribersForNewArticle({
+  title,
+  authors,
+  eventName,
+  year,
+  articleId,
+  startPage,
+  endPage
+}) {
+  try {
+    // Helpers locais
+    const toArray = (x) => Array.isArray(x) ? x : (x ? [x] : []);
+    const normalizeName = (s) =>
+      String(s ?? "")
+        .normalize("NFKC")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    // Garante array e normaliza
+    const authorList = toArray(authors).map(normalizeName).filter(Boolean);
+    if (!authorList.length) return;
+
+    // nomes lower para comparação exata porém case-insensitive
+    const lowers = authorList.map((n) => n.toLowerCase());
+
+    // ✅ FORMA ALTERNATIVA (sem ANY/array): expande como IN ($1,$2,...)
+    const subs = await sql/*sql*/`
+      SELECT DISTINCT s.email, s.name
+      FROM subscriptions s
+      WHERE s.is_enabled = TRUE
+        AND lower(s.name) IN ${sql(lowers)}
+    `;
+
+    if (!subs.length) return;
+
+    // Assunto e corpos
+    const subject = `🔔 NOVO ARTIGO: "${title}" - ${eventName} ${year}`;
+
+    const makeText = (subName) =>
+      [
+        `Prezado(a) ${subName},`,
+        "",
+        "A Vlib detectou o cadastro de um novo artigo em nosso catálogo que lista o seu nome (" +
+          subName +
+          ") na autoria.",
+        "",
+        "Detalhes do Artigo:",
+        "-------------------------------------------",
+        `Título: ${title}`,
+        `Autores: ${authorList.join(", ")}`,
+        `Evento: ${eventName} (${year})`,
+        `Páginas: ${startPage ?? "—"}–${endPage ?? "—"}`,
+        "-------------------------------------------",
+        "",
+        "Recomendamos que você acesse a biblioteca para mais detalhes.",
+        "",
+        "Para cancelar futuros alertas, responda a este e-mail solicitando a remoção.",
+        "",
+        "— Equipe Vlib"
+      ].join("\n");
+
+    const makeHtml = (subName) => `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+        <div style="background-color: #17a2b8; color: white; padding: 15px; text-align: center;">
+          <h3 style="margin: 0; font-size: 20px;">🚨 Novo Artigo Detectado em Seu Nome</h3>
+        </div>
+        <div style="padding: 25px;">
+          <p>Prezado(a) <strong>${escapeHtml(subName)}</strong>,</p>
+          <p>Detectamos o cadastro de um novo artigo no catálogo da Vlib que lista seu nome na autoria.</p>
+
+          <div style="margin: 20px 0; border: 1px solid #ced4da; border-radius: 5px; overflow: hidden;">
+            <div style="background-color: #f8f9fa; padding: 10px; font-weight: bold; color: #007bff;">
+              ${escapeHtml(title)}
+            </div>
+            <ul style="list-style: none; padding: 15px; margin: 0;">
+              <li style="margin-bottom: 5px;"><strong>Autores:</strong> ${escapeHtml(authorList.join(", "))}</li>
+              <li style="margin-bottom: 5px;"><strong>Evento/Edição:</strong> ${escapeHtml(eventName)} (${year})</li>
+              <li><strong>Páginas:</strong> ${startPage ?? "—"}–${endPage ?? "—"}</li>
+            </ul>
+          </div>
+
+          <p>Acesse a plataforma para visualizar e baixar o artigo.</p>
+        </div>
+        <div style="background-color: #f1f1f1; color: #6c757d; padding: 15px; font-size: 12px; text-align: center;">
+          <p style="margin: 0;">Este e-mail é um serviço de monitoramento. Para cancelar os alertas, responda solicitando a remoção do seu endereço.</p>
+        </div>
+      </div>
+    `;
+
+    // Envia um e-mail por inscrito
+    for (const s of subs) {
+      try {
+        await sendMail({
+          to: s.email,
+          subject,
+          text: makeText(s.name),
+          html: makeHtml(s.name)
+        });
+      } catch (e) {
+        console.error(
+          "Erro ao enviar e-mail p/ subscriber:",
+          s?.email,
+          e?.message || e
+        );
+      }
+    }
+  } catch (err) {
+    console.error(
+      "notifySubscribersForNewArticle error:",
+      err?.message || err
+    );
+  }
+}
+
 
 /**
- * Insere artigo (com PDF e autores).
+ * Insere artigo (com PDF e autores) E RETORNA TODOS OS DADOS.
  */
 async function insertArticle({ title, abstract, startPage, endPage, pdfBuffer, editionId, uploaderId, authors }) {
+  // 1. Insere e retorna os dados básicos (incluindo o ID)
   const inserted = await sql/*sql*/`
     INSERT INTO articles (title, abstract, start_page, end_page, pdf_data, edition_id, uploader_id)
     VALUES (${title}, ${abstract ?? null}, ${startPage ?? null}, ${endPage ?? null}, ${pdfBuffer}, ${editionId}, ${uploaderId ?? null})
-    RETURNING id
+    RETURNING id, title, abstract, start_page, end_page, edition_id
   `;
   const created = inserted[0];
 
   if (authors?.length) {
     await replaceArticleAuthors(created.id, authors);
   }
-  return created; // { id }
+
+  // 2. Obtém EventName e Year para a notificação
+  const [editionData] = await sql/*sql*/`
+      SELECT e.year, ev.name AS event_name
+      FROM editions e
+      JOIN events ev ON ev.id = e.event_id
+      WHERE e.id = ${editionId}
+      LIMIT 1
+  `;
+  
+  if (editionData) {
+      // Retorna o objeto completo do artigo + metadados de edição/evento
+      return { 
+          ...created, 
+          event_name: editionData.event_name, 
+          year: editionData.year 
+      }; 
+  }
+
+  return created; // Retorna o que tem, mesmo se falhar o JOIN
 }
 
 /* ============================================================================
@@ -335,6 +395,8 @@ function asStringOrNull(v) {
   const s = String(v).trim();
   return s || null;
 }
+
+
 /* ============================================================================
    1) POST /articles  → Cadastro manual com PDF
 ============================================================================ */
@@ -390,7 +452,8 @@ router.post("/", uploadOne.single("pdf"), async (req, res, next) => {
         authorNames = authors.split(/[,;]\s*/g);
       }
     }
-
+    
+    // *** CORREÇÃO APLICADA: Usa o insertArticle corrigido para obter os dados completos ***
     const created = await insertArticle({
       title: title.trim(),
       abstract: asStringOrNull(abstract),
@@ -402,16 +465,17 @@ router.post("/", uploadOne.single("pdf"), async (req, res, next) => {
       authors: authorNames
     });
 
-    // 🔔 Notifica assinantes
+    // CORREÇÃO: Chamamos a notificação usando os dados consolidados do objeto 'created'
     notifySubscribersForNewArticle({
-      title: title.trim(),
+      title: created.title || title.trim(),
       authors: authorNames,
-      eventName: eventName.trim(),
-      year,
+      eventName: created.event_name || eventName.trim(),
+      year: created.year || year,
       articleId: created.id,
-      startPage,
-      endPage,
+      startPage: created.start_page || startPage,
+      endPage: created.end_page || endPage,
     });
+    // ************************************************************************************
 
     return res.status(201).json({ ok: true, id: created.id });
   } catch (err) {
@@ -421,7 +485,6 @@ router.post("/", uploadOne.single("pdf"), async (req, res, next) => {
     next(err);
   }
 });
-
 
 /* ============================================================================
    2) PUT/PATCH /articles/:id  → Edição de metadados e/ou PDF
@@ -786,7 +849,8 @@ router.post(
             const m = pageField.match(/(\d+)\s*[-–]\s*(\d+)/);
             if (m) { startPage = parseInt(m[1], 10); endPage = parseInt(m[2], 10); }
           }
-
+          
+          // *** CORREÇÃO APLICADA: Usa o insertArticle corrigido para obter os dados completos ***
           const ins = await insertArticle({
             title: title.trim(),
             abstract,
@@ -800,14 +864,15 @@ router.post(
 
           // 🔔 Notifica assinantes cujo nome bate (exatamente, case-insensitive)
           notifySubscribersForNewArticle({
-            title: title.trim(),
+            title: ins.title, // Pega do retorno
             authors: authorNames,
-            eventName: booktitle.trim(),
-            year,
+            eventName: ins.event_name, // Pega do retorno
+            year: ins.year, // Pega do retorno
             articleId: ins.id,
-            startPage,
-            endPage,
+            startPage: ins.start_page,
+            endPage: ins.end_page,
           });
+          // ************************************************************************************
 
           created.push({ key, id: ins.id, title: title.trim() });
         } catch (e) {

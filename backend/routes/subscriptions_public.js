@@ -12,7 +12,7 @@ function isValidEmail(email) {
 
 /**
  * POST /subscriptions
- * Body: { name: string, email: string }
+ * Body: { name: string, email: string } 
  * Público: não exige JWT.
  */
 router.post("/", async (req, res, next) => {
