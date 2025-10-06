@@ -108,24 +108,24 @@ O sistema segue uma arquitetura em camadas distribuídas, projetada para separar
 
 ```mermaid
 graph TD
-    subgraph "Frontend (Next.js)"
-        A1[UI (React Components)]
-        A2[API Client (lib/api)]
-        A3[Auth Logic (lib/auth)]
+    subgraph Frontend [Frontend (Next.js)]
+        A1[UI - React Components]
+        A2[API Client - lib/api]
+        A3[Auth Logic - lib/auth]
     end
 
-    subgraph "Backend (Node.js/Express)"
-        B1[API Routes (routes/)]
-        B2[Core Logic (src/)]
-        B3[Database Connector (src/db)]
-        B4[Email Sender (src/lib/mailer)]
+    subgraph Backend [Backend (Node.js/Express)]
+        B1[API Routes - routes/]
+        B2[Core Logic - src/]
+        B3[Database Connector - src/db]
+        B4[Email Sender - src/lib/mailer]
     end
 
-    subgraph "Banco de Dados"
+    subgraph Database [Banco de Dados]
         C[PostgreSQL]
     end
 
-    subgraph "Serviços Externos"
+    subgraph ExternalServices [Serviços Externos]
         D[Serviço de E-mail]
     end
 
