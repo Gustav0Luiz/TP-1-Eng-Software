@@ -98,6 +98,99 @@ erDiagram
 
 ```
 
+---
+
+## Arquitetura do Sistema
+
+O sistema segue uma arquitetura em camadas distribuídas, projetada para separar as responsabilidades e facilitar a manutenção.
+
+```mermaid
+graph TD
+    subgraph "Frontend (Next.js)"
+        A1[UI (React Components)]
+        A2[API Client (lib/api)]
+        A3[Auth Logic (lib/auth)]
+    end
+
+    subgraph "Backend (Node.js/Express)"
+        B1[API Routes (routes/)]
+        B2[Core Logic (src/)]
+        B3[Database Connector (src/db)]
+        B4[Email Sender (src/lib/mailer)]
+    end
+
+    subgraph "Banco de Dados"
+        C[PostgreSQL]
+    end
+
+    subgraph "Serviços Externos"
+        D[Serviço de E-mail]
+    end
+
+    A2 -->|Requisições HTTP/API| B1
+    B3 -->|Consultas SQL| C
+    B4 -->|Envio de E-mail| D
+```
+
+---
+
+## Diagrama de Sequência: Publicação de Artigo
+
+O diagrama abaixo ilustra o fluxo de interações para a publicação de um novo artigo no sistema, desde a ação do usuário no frontend até a notificação por e-mail no backend.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Frontend as "Frontend (Página de Perfil)"
+    participant Backend_Route as "Backend (POST /articles)"
+    participant Backend_DB as "Backend (Banco de Dados)"
+    participant Backend_Mailer as "Backend (Serviço de E-mail)"
+
+    User->>Frontend: Clica em "Novo Artigo"
+    Frontend->>User: Exibe modal com formulário de cadastro
+
+    User->>Frontend: Preenche dados e anexa arquivo PDF
+    User->>Frontend: Clica em "Salvar Artigo"
+
+    Frontend->>Backend_Route: Envia requisição POST /articles com FormData (dados + PDF)
+    activate Backend_Route
+
+    Backend_Route->>Backend_Route: Valida dados e autenticação do usuário
+    Backend_Route->>Backend_DB: upsertEditionByEventNameAndYearForUser(evento, ano)
+    activate Backend_DB
+    Backend_DB-->>Backend_Route: Retorna ID da Edição
+    deactivate Backend_DB
+
+    Backend_Route->>Backend_DB: checkDuplicateArticle(título, editionId)
+    activate Backend_DB
+    Backend_DB-->>Backend_Route: (Confirma que não há duplicatas)
+    deactivate Backend_DB
+
+    Backend_Route->>Backend_DB: insertArticle(dados, pdfBuffer, editionId)
+    activate Backend_DB
+    Backend_DB->>Backend_DB: 1. Insere na tabela 'articles'
+    Backend_DB->>Backend_DB: 2. Para cada autor, faz UPSERT na tabela 'authors'
+    Backend_DB->>Backend_DB: 3. Insere na tabela 'article_authors'
+    Backend_DB-->>Backend_Route: Retorna ID do artigo criado
+    deactivate Backend_DB
+
+    alt Processo Assíncrono
+        Backend_Route->>Backend_Mailer: notifySubscribersForNewArticle(dados do artigo)
+        activate Backend_Mailer
+        Backend_Mailer->>Backend_DB: Busca e-mails de assinantes que são autores
+        activate Backend_DB
+        Backend_DB-->>Backend_Mailer: Retorna lista de e-mails
+        deactivate Backend_DB
+        Backend_Mailer->>Backend_Mailer: Envia e-mail de notificação para cada assinante
+        deactivate Backend_Mailer
+    end
+
+    Backend_Route-->>Frontend: Retorna resposta HTTP 201 (Created)
+    deactivate Backend_Route
+
+    Frontend->>User: Exibe modal de sucesso ("Artigo criado!")
+```
+
 
 ## 🚀 Como Executar o Projeto
 
