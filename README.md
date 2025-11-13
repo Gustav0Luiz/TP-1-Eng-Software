@@ -232,6 +232,77 @@ Acesse `http://localhost:3000/test-connection` para verificar se:
    cd frontend && npm run dev
    ```
 
+### 🧪 Testing the Application
+
+This project includes a comprehensive test suite with unit, integration, and end-to-end (E2E) tests. The following scripts automate the setup and execution process.
+
+#### 1. First-Time Setup
+
+Before running the tests for the first time, you need to install all the necessary dependencies. A setup script is provided for this purpose.
+
+**Note**: You may need to grant execute permissions to the script first:
+```bash
+chmod +x setup.sh
+```
+
+Then, run the script:
+```bash
+./setup.sh
+```
+This command will install all `npm` packages for both the backend and the E2E tests.
+
+#### 2. Running All Tests
+
+A single script is provided to run the entire test suite automatically.
+
+**Note**: You may need to grant execute permissions to the script first:
+```bash
+chmod +x run_tests.sh
+```
+
+To execute all backend and frontend tests, run:
+```bash
+./run_tests.sh
+```
+This script will:
+1.  Run all backend unit and integration tests and display the results in the console.
+2.  Automatically start the frontend server.
+3.  Run all Cypress E2E tests in headless mode (no UI will be displayed).
+4.  Shut down the frontend server after the tests are complete.
+
+#### 3. Running Tests Manually
+
+If you prefer to run the tests separately, follow these steps:
+
+**Backend Tests**
+
+```bash
+# Navigate to the backend directory
+cd backend
+
+# Run all tests
+npm test
+
+# Run tests and generate a coverage report
+npm run test:coverage
+```
+
+**End-to-End (E2E) Tests**
+
+1.  **Start the frontend server**:
+    ```bash
+    cd frontend
+    npm run dev
+    ```
+
+2.  **In a new terminal**, open the Cypress Test Runner from the project root:
+    ```bash
+    npm run cypress:open
+    ```
+    This will open an interactive interface where you can run the E2E tests.
+
+---
+
 ### 📁 Estrutura do Projeto
 
 ```
