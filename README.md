@@ -42,7 +42,7 @@ A estrutura do banco de dados foi projetada para suportar as funcionalidades da 
 ```mermaid
 erDiagram
     users {
-        INTEGER id PK
+        INT id PK
         VARCHAR first_name
         VARCHAR last_name
         VARCHAR nickname UK
@@ -53,7 +53,7 @@ erDiagram
     }
 
     events {
-        INTEGER id PK
+        INT id PK
         VARCHAR name UK
         TEXT description
         TIMESTAMPTZ created_at
@@ -61,9 +61,9 @@ erDiagram
     }
 
     editions {
-        INTEGER id PK
-        INTEGER event_id FK
-        INTEGER year
+        INT id PK
+        INT event_id FK
+        INT year
         TEXT description
         VARCHAR local
         TIMESTAMPTZ created_at
@@ -71,33 +71,33 @@ erDiagram
     }
 
     articles {
-        INTEGER id PK
+        INT id PK
         VARCHAR title
         TEXT abstract
-        INTEGER start_page
-        INTEGER end_page
+        INT start_page
+        INT end_page
         BYTEA pdf_data
-        INTEGER edition_id FK
-        INTEGER uploader_id FK
+        INT edition_id FK
+        INT uploader_id FK
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
     }
 
     authors {
-        INTEGER id PK
+        INT id PK
         VARCHAR name UK
     }
 
     article_authors {
-        INTEGER article_id PK, FK
-        INTEGER author_id PK, FK
+        INT article_id PK, FK
+        INT author_id PK, FK
     }
 
     users ||--o{ articles : "uploads"
-    events ||--|{ editions : "has"
-    editions ||--|{ articles : "includes"
-    articles }|--|{ article_authors : "is_written_by"
-    authors }|--|{ article_authors : "writes"
+    events ||--o{ editions : "has"
+    editions ||--o{ articles : "includes"
+    articles }|..|| article_authors : "is written by"
+    authors ||..|{ article_authors : "writes"
 ```
 
 ---
