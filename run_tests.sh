@@ -5,13 +5,14 @@ set -e
 
 # --- Run Backend Tests ---
 echo "\n[TEST] Running backend unit and integration tests..."
-cd backend
-npm test
-cd ..
+(cd backend && npm test)
 echo "[TEST] Backend tests completed successfully."
 
-# --- Run E2E Tests ---
-echo "\n[TEST] Running end-to-end tests (this may take a few minutes)..."
+# Placeholder for frontend tests
+echo "Frontend tests to be implemented..."
+
+# Run E2E tests
+echo "Running E2E tests..."
 npm run test:e2e
 echo "[TEST] End-to-end tests completed successfully."
 
