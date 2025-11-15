@@ -42,7 +42,7 @@ A estrutura do banco de dados foi projetada para suportar as funcionalidades da 
 ```mermaid
 erDiagram
     users {
-        INTEGER id PK
+        INT id PK
         VARCHAR first_name
         VARCHAR last_name
         VARCHAR nickname UK
@@ -53,7 +53,7 @@ erDiagram
     }
 
     events {
-        INTEGER id PK
+        INT id PK
         VARCHAR name UK
         TEXT description
         TIMESTAMPTZ created_at
@@ -61,9 +61,9 @@ erDiagram
     }
 
     editions {
-        INTEGER id PK
-        INTEGER event_id FK
-        INTEGER year
+        INT id PK
+        INT event_id FK
+        INT year
         TEXT description
         VARCHAR local
         TIMESTAMPTZ created_at
@@ -71,33 +71,33 @@ erDiagram
     }
 
     articles {
-        INTEGER id PK
+        INT id PK
         VARCHAR title
         TEXT abstract
-        INTEGER start_page
-        INTEGER end_page
+        INT start_page
+        INT end_page
         BYTEA pdf_data
-        INTEGER edition_id FK
-        INTEGER uploader_id FK
+        INT edition_id FK
+        INT uploader_id FK
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
     }
 
     authors {
-        INTEGER id PK
+        INT id PK
         VARCHAR name UK
     }
 
     article_authors {
-        INTEGER article_id PK, FK
-        INTEGER author_id PK, FK
+        INT article_id PK, FK
+        INT author_id PK, FK
     }
 
     users ||--o{ articles : "uploads"
-    events ||--|{ editions : "has"
-    editions ||--|{ articles : "includes"
-    articles }|--|{ article_authors : "is_written_by"
-    authors }|--|{ article_authors : "writes"
+    events ||--o{ editions : "has"
+    editions ||--o{ articles : "includes"
+    articles }|..|| article_authors : "is written by"
+    authors ||..|{ article_authors : "writes"
 ```
 
 ---
@@ -231,6 +231,77 @@ Acesse `http://localhost:3000/test-connection` para verificar se:
    ```bash
    cd frontend && npm run dev
    ```
+
+### 🧪 Testing the Application
+
+This project includes a comprehensive test suite with unit, integration, and end-to-end (E2E) tests. The following scripts automate the setup and execution process.
+
+#### 1. First-Time Setup
+
+Before running the tests for the first time, you need to install all the necessary dependencies. A setup script is provided for this purpose.
+
+**Note**: You may need to grant execute permissions to the script first:
+```bash
+chmod +x setup.sh
+```
+
+Then, run the script:
+```bash
+./setup.sh
+```
+This command will install all `npm` packages for both the backend and the E2E tests.
+
+#### 2. Running All Tests
+
+A single script is provided to run the entire test suite automatically.
+
+**Note**: You may need to grant execute permissions to the script first:
+```bash
+chmod +x run_tests.sh
+```
+
+To execute all backend and frontend tests, run:
+```bash
+./run_tests.sh
+```
+This script will:
+1.  Run all backend unit and integration tests and display the results in the console.
+2.  Automatically start the frontend server.
+3.  Run all Cypress E2E tests in headless mode (no UI will be displayed).
+4.  Shut down the frontend server after the tests are complete.
+
+#### 3. Running Tests Manually
+
+If you prefer to run the tests separately, follow these steps:
+
+**Backend Tests**
+
+```bash
+# Navigate to the backend directory
+cd backend
+
+# Run all tests
+npm test
+
+# Run tests and generate a coverage report
+npm run test:coverage
+```
+
+**End-to-End (E2E) Tests**
+
+1.  **Start the frontend server**:
+    ```bash
+    cd frontend
+    npm run dev
+    ```
+
+2.  **In a new terminal**, open the Cypress Test Runner from the project root:
+    ```bash
+    npm run cypress:open
+    ```
+    This will open an interactive interface where you can run the E2E tests.
+
+---
 
 ### 📁 Estrutura do Projeto
 
