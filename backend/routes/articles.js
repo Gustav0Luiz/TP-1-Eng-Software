@@ -582,14 +582,9 @@ async function updateArticleHandler(req, res, next) {
 
     // Junta os fragments manualmente (mesmo padrão do PATCH /editions)
     if (updates.length > 0) {
-      let setSql = updates[0];
-      for (let i = 1; i < updates.length; i++) {
-        setSql = sql/*sql*/`${setSql}, ${updates[i]}`;
-      }
-
       const [updated] = await sql/*sql*/`
         UPDATE articles
-           SET ${setSql}
+           SET ${sql(updates)}
          WHERE id = ${id} AND uploader_id = ${userId}
          RETURNING id
       `;
