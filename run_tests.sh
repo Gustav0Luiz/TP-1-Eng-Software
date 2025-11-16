@@ -1,20 +1,46 @@
 #!/bin/bash
 
-# Exit immediately if a command exits with a non-zero status.
-set -e
+overall_status=0
 
-# --- Run Backend Tests ---
-echo "\n[TEST] Running backend unit and integration tests..."
-(cd backend && npm test)
-echo "[TEST] Backend tests completed successfully."
+run_step() {
+  local description="$1"
+  shift
+  printf "\n[TEST] Running %s...\n" "$description"
+  if "$@"; then
+    printf "[TEST] %s completed successfully.\n" "$description"
+  else
+    printf "[TEST] %s failed (continuing).\n" "$description"
+    overall_status=1
+  fi
+}
 
-# Placeholder for frontend tests
-echo "Frontend tests to be implemented..."
+# --- Backend ---
+run_step "backend unit and integration tests" bash -lc "cd backend && npm test"
 
-# Run E2E tests
-echo "Running E2E tests..."
-npm run test:e2e
-echo "[TEST] End-to-end tests completed successfully."
+read -n 1 -s -r -p $'\nPressione qualquer tecla para iniciar os testes do frontend...'
+printf "\n"
 
+# --- Frontend ---
+run_step "frontend unit tests" bash -lc "cd frontend && npm test -- --runTestsByPath \
+  tests/app/alertas.page.test.tsx \
+  tests/app/registrar.page.test.tsx \
+  tests/app/buscar.page.test.tsx \
+  tests/components/Header.test.tsx \
+  tests/app/login.page.test.tsx \
+  tests/app/edition.page.test.tsx \
+  tests/app/home.page.test.tsx \
+  tests/components/ArticleCarousel.test.tsx \
+  tests/app/event.page.test.tsx \
+  tests/components/Footer.test.tsx \
+  tests/app/user.index.page.test.tsx"
 
-echo "\nAll tests passed!"
+# --- E2E ---
+run_step "end-to-end tests" npm run test:e2e
+
+if [ "$overall_status" -eq 0 ]; then
+  printf "\nAll tests passed!\n"
+else
+  printf "\nSome tests failed. Review logs above.\n"
+fi
+
+exit "$overall_status"
