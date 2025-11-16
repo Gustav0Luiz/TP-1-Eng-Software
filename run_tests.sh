@@ -15,13 +15,13 @@ run_step() {
 }
 
 # --- Backend ---
-run_step "backend unit and integration tests" bash -lc "cd backend && npm test"
+run_step "backend unit and integration tests" bash -lc "cd backend && npm test -- --coverage"
 
 read -n 1 -s -r -p $'\nPressione qualquer tecla para iniciar os testes do frontend...'
 printf "\n"
 
 # --- Frontend ---
-run_step "frontend unit tests" bash -lc "cd frontend && npm test -- --runTestsByPath \
+run_step "frontend unit tests" bash -lc "cd frontend && npm test -- --coverage --runTestsByPath \
   tests/app/alertas.page.test.tsx \
   tests/app/registrar.page.test.tsx \
   tests/app/buscar.page.test.tsx \
