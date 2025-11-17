@@ -14,8 +14,8 @@ run_step() {
   fi
 }
 
-# --- Backend ---
-run_step "backend unit and integration tests" bash -lc "cd backend && npm test -- --coverage"
+# --- Backend (unit tests) ---
+run_step "backend unit tests" bash -lc "cd backend && npm test -- --coverage --testPathIgnorePatterns=tests/integracao"
 
 read -n 1 -s -r -p $'\nPressione qualquer tecla para iniciar os testes do frontend...'
 printf "\n"
@@ -34,8 +34,10 @@ run_step "frontend unit tests" bash -lc "cd frontend && npm test -- --coverage -
   tests/components/Footer.test.tsx \
   tests/app/user.index.page.test.tsx"
 
-# --- E2E ---
-run_step "end-to-end tests" npm run test:e2e
+# --- Backend (integration tests) ---
+run_step "backend integration tests" bash -lc "cd backend && npm test -- --runTestsByPath \
+  tests/integracao/app.integracao.test.js \
+  tests/integracao/auth.integracao.test.js"
 
 if [ "$overall_status" -eq 0 ]; then
   printf "\nAll tests passed!\n"

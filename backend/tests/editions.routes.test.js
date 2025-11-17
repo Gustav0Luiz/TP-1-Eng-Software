@@ -60,3 +60,162 @@ describe("POST /editions (cenário de segurança)", () => {
     expect(sql).toHaveBeenCalledTimes(1); // deveria abortar antes do INSERT
   });
 });
+
+describe("POST /editions (fluxos gerais)", () => {
+  beforeEach(() => {
+    sql.mockReset();
+  });
+
+  test("cria uma edição com sucesso quando os dados são válidos", async () => {
+    const token = createToken({ sub: 5 });
+
+    sql
+      .mockResolvedValueOnce([{ id: 40 }]) // SELECT do evento por nome
+      .mockResolvedValueOnce([
+        { id: 99, event_id: 40, year: 2032, description: "Edição Principal", local: "Recife" },
+      ]); // INSERT retorna edição
+
+    const response = await request(app)
+      .post("/editions")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        eventName: "Evento Cypress",
+        year: 2032,
+        description: "Edição Principal",
+        local: "Recife",
+      });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.body).toMatchObject({
+      edition: { id: 99, year: 2032, description: "Edição Principal", local: "Recife" },
+    });
+    expect(sql).toHaveBeenCalledTimes(2);
+  });
+
+  test("retorna 409 quando já existe edição no mesmo ano", async () => {
+    const token = createToken({ sub: 5 });
+    const duplicateError = Object.assign(new Error("duplicate"), { code: "23505" });
+
+    sql
+      .mockResolvedValueOnce([{ id: 40 }])
+      .mockRejectedValueOnce(duplicateError);
+
+    const response = await request(app)
+      .post("/editions")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        eventName: "Evento Cypress",
+        year: 2032,
+      });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.body).toMatchObject({
+      error: { code: "DUPLICATE" },
+    });
+  });
+});
+
+describe("GET /editions", () => {
+  beforeEach(() => {
+    sql.mockReset();
+  });
+});
+
+describe("GET /editions/:id", () => {
+  beforeEach(() => {
+    sql.mockReset();
+  });
+
+  test("retorna 400 quando o id não é numérico", async () => {
+    const token = createToken();
+
+    const response = await request(app)
+      .get("/editions/abc")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toMatchObject({
+      error: { code: "VALIDATION" },
+    });
+  });
+
+  test("retorna a edição quando pertence ao usuário", async () => {
+    const token = createToken({ sub: 9 });
+
+    sql.mockResolvedValueOnce([
+      { id: 7, event_id: 3, year: 2029, description: "Detalhe", local: "RJ", event_name: "Evento A" },
+    ]);
+
+    const response = await request(app)
+      .get("/editions/7")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toMatchObject({
+      edition: { id: 7, year: 2029, event_name: "Evento A" },
+    });
+  });
+});
+
+describe("PATCH /editions/:id", () => {
+  beforeEach(() => {
+    sql.mockReset();
+  });
+
+  test("retorna 400 quando nenhum campo é enviado", async () => {
+    const token = createToken();
+
+    const response = await request(app)
+      .patch("/editions/5")
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toMatchObject({
+      error: { code: "VALIDATION" },
+    });
+  });
+
+});
+
+describe("DELETE /editions/:id", () => {
+  beforeEach(() => {
+    sql.mockReset();
+  });
+
+  test("retorna 400 com id inválido", async () => {
+    const token = createToken();
+
+    const response = await request(app)
+      .delete("/editions/xyz")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  test("remove edição pertencente ao usuário", async () => {
+    const token = createToken({ sub: 15 });
+    sql.mockResolvedValueOnce([{ id: 12 }]);
+
+    const response = await request(app)
+      .delete("/editions/12")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(response.statusCode).toBe(204);
+    expect(sql).toHaveBeenCalledTimes(1);
+  });
+
+  test("retorna 404 quando não encontra edição", async () => {
+    const token = createToken();
+    sql.mockResolvedValueOnce([]);
+
+    const response = await request(app)
+      .delete("/editions/12")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(response.statusCode).toBe(404);
+    expect(response.body).toMatchObject({
+      error: { code: "NOT_FOUND" },
+    });
+  });
+});
