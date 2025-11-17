@@ -32,10 +32,16 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function safeSetToken(t: string | null) {
+function safeSetToken(t: string | null, maxAgeSeconds = 60 * 60 * 24 * 7) {
   if (typeof window !== 'undefined') {
     if (t) localStorage.setItem('auth_token', t);
     else localStorage.removeItem('auth_token');
+
+    if (t) {
+      document.cookie = `auth_token=${t}; path=/; max-age=${maxAgeSeconds}; sameSite=lax`;
+    } else {
+      document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; sameSite=lax';
+    }
   }
 }
 
