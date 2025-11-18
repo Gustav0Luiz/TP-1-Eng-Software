@@ -804,7 +804,7 @@ router.post(
 
         // --- VALIDAÇÕES E EXTRAÇÃO ---
         const title = asStringOrNull(item.title);
-        const booktitle = asStringOrNull(item["container-title"]); // nome do evento
+        const booktitle = asStringOrNull(item["container.title"]); // nome do evento
         const year = yearFromCiteItem(item);
         const authorNames = authorsFromCiteItem(item);
 

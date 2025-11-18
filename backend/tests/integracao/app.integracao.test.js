@@ -5,6 +5,9 @@
  * garantir que rotas básicas e o middleware de erros funcionem
  * em conjunto. Simulamos respostas do banco (sql) para validar
  * cada desfecho esperado.
+ *
+ * ⚠️ Mesmo sem um Postgres ativo, o app inteiro sobe — apenas
+ * substituímos o cliente SQL por um mock para controlar os casos.
  */
 
 const request = require("supertest");
@@ -25,7 +28,7 @@ describe("Testes de integração do app (camada HTTP completa)", () => {
   });
 
   test("GET /health responde com status simples", async () => {
-    // Este endpoint não depende de banco, então o response deve ser imediato.
+    // ✅ Fluxo mais básico: não acessa banco, só confirma que o app está vivo.
     const response = await request(app).get("/health");
     expect(response.statusCode).toBe(200);
     expect(response.body).toEqual({ ok: true });
@@ -33,7 +36,7 @@ describe("Testes de integração do app (camada HTTP completa)", () => {
   });
 
   test("GET /db-check retorna versão quando o banco responde", async () => {
-    // Simula a consulta SELECT version().
+    // 📝 Simula a consulta SELECT version().
     sql.mockResolvedValueOnce([{ version: "PostgreSQL 16.0" }]);
     const response = await request(app).get("/db-check");
     expect(response.statusCode).toBe(200);
@@ -42,6 +45,7 @@ describe("Testes de integração do app (camada HTTP completa)", () => {
   });
 
   test("GET /db-check devolve erro específico quando falta tabela (42P01)", async () => {
+    // 🧪 Forçamos um erro 42P01 para ver se o middleware traduz em TABLE_NOT_FOUND.
     const tableError = Object.assign(new Error("missing"), { code: "42P01" });
     sql.mockRejectedValueOnce(tableError);
 
@@ -54,6 +58,7 @@ describe("Testes de integração do app (camada HTTP completa)", () => {
   });
 
   test("GET /db-check converte violação de unicidade em 409", async () => {
+    // 🧪 Segundo cenário negativo: erro de unicidade vira HTTP 409.
     const uniqueError = Object.assign(new Error("dup"), { code: "23505" });
     sql.mockRejectedValueOnce(uniqueError);
 
@@ -66,7 +71,7 @@ describe("Testes de integração do app (camada HTTP completa)", () => {
   });
 
   test("Rotas inexistentes retornam JSON 404 padronizado", async () => {
-    // Exercita o middleware final que responde 404 para qualquer rota não mapeada.
+    // 🚫 Exercita o middleware final para confirmar o JSON 404 padrão.
     const response = await request(app).get("/rota-desconhecida");
     expect(response.statusCode).toBe(404);
     expect(response.body).toEqual({

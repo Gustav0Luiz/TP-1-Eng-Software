@@ -46,10 +46,10 @@ describe("Integração /auth", () => {
   });
 
   test("POST /auth/register cria usuário e devolve token", async () => {
-    // bcrypt gera um hash estático para não depender do algoritmo real.
+    // 🔐 bcrypt gera um hash estático para não depender do algoritmo real.
     bcrypt.hash.mockResolvedValue("hashed-password");
 
-    // Simula o retorno do INSERT ... RETURNING.
+    // Simula o retorno do INSERT ... RETURNING (com campos públicos).
     sql.mockResolvedValueOnce([
       {
         id: 99,
@@ -79,7 +79,7 @@ describe("Integração /auth", () => {
       },
       token: expect.any(String),
     });
-    expect(bcrypt.hash).toHaveBeenCalledWith("Senha!123", 10);
+    expect(bcrypt.hash).toHaveBeenCalledWith("Senha!123", 10); // garante o salt padrão.
     expect(sql).toHaveBeenCalledTimes(1);
   });
 
@@ -133,7 +133,7 @@ describe("Integração /auth", () => {
       },
       token: expect.any(String),
     });
-    expect(bcrypt.compare).toHaveBeenCalledWith("senha correta", "db-hash");
+    expect(bcrypt.compare).toHaveBeenCalledWith("senha correta", "db-hash"); // valida uso do hash do banco.
   });
 
   test("POST /auth/login retorna 401 para nickname inexistente", async () => {
